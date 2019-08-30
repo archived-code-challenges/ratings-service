@@ -10,6 +10,9 @@ import (
 
 // Services aggregates all services provided by the models package.
 type Services struct {
+	User UserService
+	Role RoleService
+
 	db *gorm.DB
 }
 
@@ -43,6 +46,13 @@ func NewServices(c *Config) (*Services, error) {
 		return nil, wrap("can't migrate", err)
 	}
 
+	s.Role = NewRoleService(s.db)
+
+	s.User, err = NewUserService(s.db, s.Role, c.JWTSecret)
+	if err != nil {
+		return nil, wrap("can't start UserService", err)
+	}
+
 	err = s.createDefaultValues()
 	if err != nil {
 		return nil, wrap("can't insert default values", err)
@@ -63,13 +73,36 @@ func (s *Services) Close() error {
 
 // autoMigrate creates or updates the database schema.
 func (s *Services) autoMigrate() error {
-	// TODO: Implement auto-migrations here.
+	err := s.db.
+		AutoMigrate(&Role{}).
+		AutoMigrate(&User{}).AddForeignKey("role_id", "roles(id)", "RESTRICT", "RESTRICT").
+		Error
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
+// createDefaultValues uses the instantiated services to add the set of fixed, default
+// values that the database is supposed to have.
 func (s *Services) createDefaultValues() error {
-	// TODO: Implement defaults here
+	// warning: non standard SQL used to update sequence counters
+	err := s.db.
+		Save(&Role{ID: 1, Label: "admin", Permissions: Permissions(-1)}).
+		Save(&Role{ID: 2, Label: "user", Permissions: Permissions(0)}).
+		Exec("DO $$ BEGIN IF (SELECT last_value = 1 FROM roles_id_seq) THEN ALTER SEQUENCE roles_id_seq RESTART WITH 3; END IF; END; $$").
+		Error
+	if err != nil {
+		return wrapi("failed to create default values when migrating", err)
+	}
+
+	err = s.db.Save(&User{ID: 1, Active: true, Email: "admin@admin.com", FirstName: "admin", Password: "$2y$12$5wXQu8UknGQxEvdATbjvUORLJAQXYfB7tLCqqISFZqjlXz3f9FYwO", RoleID: 1}).
+		Exec("DO $$ BEGIN IF (SELECT last_value = 1 FROM users_id_seq) THEN ALTER SEQUENCE users_id_seq RESTART WITH 2; END IF; END; $$").
+		Error
+	if err != nil {
+		return wrapi("failed to create default roles when migrating", err)
+	}
 
 	return nil
 }
