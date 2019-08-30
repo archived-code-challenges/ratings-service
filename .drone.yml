@@ -1,0 +1,46 @@
+clone:
+  depth: 1
+
+kind: pipeline
+name: default
+
+steps:
+- name: test
+  image: golang:1.12.9-alpine
+  environment:
+    GOOS: linux
+    GO111MODULE: "on"
+    CGO_ENABLED: "0"
+    RANTINGSAPP_POSTGRES_TEST_DSL: "postgres://ratingsapp:ratingspassword@postgres_test:5432/ratingsapp_test?sslmode=disable"
+    RANTINGSAPP_JWT_SECRET: "SAMPLE_DEVELOPMENT_SECRET_WITH_LENGTH"
+  commands:
+  - go test -mod=vendor -cover -v -p 1 ./...
+
+# - name: publish
+#   image: plugins/docker
+#   settings:
+#     repo: <remoterepo>.com/ratingsapp
+#     registry: <remoterepo>.com
+#     username:
+#       from_secret: docker_username
+#     password:
+#       from_secret: docker_password
+#     build_args:
+#       - BUILD_VERSION=${DRONE_TAG}
+#     tags:
+#       - latest
+#       - "${DRONE_TAG}"
+#   when:
+#     event:
+#     - tag
+
+services:
+- name: postgres_test
+  image: postgres:9.6
+  environment:
+    POSTGRES_USER: ratingsapp
+    POSTGRES_PASSWORD: ratingspassword
+    POSTGRES_DB: ratingsapp_test
+
+image_pull_secrets:
+- .dockerconfigjson
