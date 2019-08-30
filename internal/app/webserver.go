@@ -16,6 +16,8 @@ type webServer struct {
 	server http.Server
 
 	staticCtrl *controllers.Static
+	usersCtrl  *controllers.Users
+	rolesCtrl  *controllers.Roles
 
 	mwAuthenticated gin.HandlerFunc
 }
@@ -23,7 +25,11 @@ type webServer struct {
 func newWebServer(port string, svc *models.Services) *webServer {
 	var ws = &webServer{}
 
+	ws.mwAuthenticated = middleware.Authenticated(svc.User)
+
 	ws.staticCtrl = controllers.NewStatic()
+	ws.usersCtrl = controllers.NewUsers(svc.User)
+	ws.rolesCtrl = controllers.NewRoles(svc.Role)
 
 	ws.setupRoutes()
 	ws.server = http.Server{
@@ -69,7 +75,8 @@ func (ws *webServer) setupRoutes() {
 	mux.Use(gin.Recovery())
 	mux.Use(middleware.SecureHeaders)
 
-	// TODO: Authentication
+	// Authentication
+	mux.POST("/api/v1/oauth/token/", ws.usersCtrl.Login)
 
 	// restricted handlers
 	{
@@ -80,11 +87,58 @@ func (ws *webServer) setupRoutes() {
 		{
 			apimux := restricted.Group("/api/v1/")
 
-			// TODO: ws routes here...
+			ws.setupUsers(apimux)
+			ws.setupRoles(apimux)
 		}
 	}
 
 	mux.NoRoute(ws.staticCtrl.NotFound)
 
 	ws.eng = mux
+}
+
+func (ws *webServer) setupUsers(mux *gin.RouterGroup) {
+	mux.GET("/users/", middleware.Can(
+		models.PermissionReadUsers,
+		ws.usersCtrl.List,
+	))
+	mux.GET("/users/:id", middleware.Can(
+		models.PermissionReadUsers,
+		ws.usersCtrl.Get,
+	))
+	mux.POST("/users/", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.usersCtrl.Create,
+	))
+	mux.PUT("/users/:id", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.usersCtrl.Update,
+	))
+	mux.DELETE("/users/:id", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.usersCtrl.Delete,
+	))
+}
+
+func (ws *webServer) setupRoles(mux *gin.RouterGroup) {
+	mux.GET("/roles/", middleware.Can(
+		models.PermissionReadUsers,
+		ws.rolesCtrl.List,
+	))
+	mux.GET("/roles/:id", middleware.Can(
+		models.PermissionReadUsers,
+		ws.rolesCtrl.Get,
+	))
+	mux.POST("/roles/", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.rolesCtrl.Create,
+	))
+	mux.PUT("/roles/:id", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.rolesCtrl.Update,
+	))
+	mux.DELETE("/roles/:id", middleware.Can(
+		models.PermissionWriteUsers,
+		ws.rolesCtrl.Delete,
+	))
 }
