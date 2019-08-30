@@ -18,14 +18,14 @@ To make this API reusable and "end-user independent", the items will be stored w
 
 | Field | Type | Default | Description |
 | - | - | - | - |
-| **id**        | int       |       | Rating ID in the database. |
+| **id**        | int64     |       | Rating ID in the database. |
 | **active**    | bool      | true  | Whether the rate is active. |
 | **anonymous** | bool      | true  | Whether the rating is anonymous or not. |
 | **comment**   | string    |       | The commentary attached to the rating. |
 | **date**      | time.Time |       | Date when the rating was submitted or updated. |
 | **extra**     | json      |  {}   | field to store stuff like logistics, color, date... in a json format. |
 | **score**     | int       |       | Numeral value that will indicate the score that the target got in a rating. |
-| **target***   | int64     |       | Numeral value that contains the target entity of the rating. |
+| **target**    | int64     |   *   | Numeral value that contains the target entity of the rating. |
 | **userId**    | int64     |       | The ID of the user attached to this rating. |
 
 *In a full adaptation of this API, the **target** can refer to a real object, on another table of the database. By now, we will treat all objects as a number for the sake of brevity.
@@ -102,12 +102,11 @@ Pragma: no-cache
 | User does not have a `writeRatings` permission | 403 | forbidden | |
 | Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
 | ID field is invalid | 400 | validation_error | id: id_taken |
-| comment field is empty | 400 | validation_error | comment: required |
-| comment must have at least 2 characters | 400 | validation_error | name: too_short |
-| comment must have max 255 characters | 400 | validation_error | name: too_long |
-| extra field is invalid | 400 | validation_error | extra: invalid |
-| extra must have max 255 characters | 400 | validation_error | name: too_long |
-| score field is invalid | 400 | validation_error | score: invalid |
+| comment must have max 255 characters | 400 | validation_error | comment: too_long |
+| extra content is invalid | 400 | validation_error | extra: invalid |
+| extra must have max 255 characters | 400 | validation_error | extra: too_long |
+| score field is required | 400 | validation_error | score: required |
+| target field is required | 400 | validation_error | target: required |
 | target field is invalid | 400 | validation_error | target: invalid |
 | userId field is invalid | 400 | validation_error | userId: reference_not_found |
 | Internal error | 500 | server_error | |
@@ -313,7 +312,10 @@ Pragma: no-cache
 | Case | HTTP code | error | fields |
 | - | - | - | - |
 | Input body is malformed | 400 | invalid_json | |
-| comment must have at least 2 characters | 400 | validation_error | name: too_short |
+| comment must have max 255 characters | 400 | validation_error | comment: too_long |
+| extra content is invalid | 400 | validation_error | extra: invalid |
+| extra must have max 255 characters | 400 | validation_error | extra: too_long |
+| score field is required | 400 | validation_error | score: required |
 | Invalid Authorization header | 401 | unauthorised | |
 | Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
 | User does not have a `writeRatings` permission | 403 | forbidden | |

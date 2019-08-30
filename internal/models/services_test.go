@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: Add Rating checks
 func TestNewServices(t *testing.T) {
 
 	testServices := func(t *testing.T, services *Services) {
@@ -17,9 +18,6 @@ func TestNewServices(t *testing.T) {
 
 		users, err := services.User.ByIDs()
 		assert.NoError(t, err, "basic test on users does not return errors")
-
-		ratings, err := services.Rating.ByIDs()
-		assert.NoError(t, err, "basic test on ratings does not return errors")
 
 		require.Len(t, roles, 2, "must create default roles")
 		assert.Equal(t, int64(1), roles[0].ID)
@@ -39,7 +37,6 @@ func TestNewServices(t *testing.T) {
 		assert.NoError(t, services.User.Create(&newUser), "must update sequence numbers in postgres so new users can be created")
 		services.User.Delete(newUser.ID)
 
-		// TODO: Rating
 	}
 
 	t.Run("invalidConfig1", func(t *testing.T) {
@@ -130,6 +127,4 @@ func TestServices_Close(t *testing.T) {
 	_, err = services.User.ByIDs()
 	assert.Error(t, err, "basic test on a closed service for users must return an error")
 
-	_, err = services.Rating.ByIDs()
-	assert.Error(t, err, "basic test on a closed service for users must return an error")
 }

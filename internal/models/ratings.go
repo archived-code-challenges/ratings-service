@@ -72,8 +72,7 @@ type Rating struct {
 	Target int64 `gorm:"unique_index:uix_ratings_user_id_target;type:;bigint;not null" json:"target"`
 
 	// The ID of the user attached to this rating.
-	UserID int64 `gorm:"unique_index:uix_ratings_user_id_target;type:bigint;not null" json:"userId"` // REMOVEME
-	// User User `gorm:"unique_index; json:"user,omitempty"`
+	UserID int64 `gorm:"unique_index:uix_ratings_user_id_target;type:bigint;not null" json:"userId"`
 }
 
 // NewRating creates a new Rating value with default field values applied.
