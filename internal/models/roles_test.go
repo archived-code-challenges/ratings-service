@@ -10,6 +10,55 @@ import (
 	"golang.org/x/xerrors"
 )
 
+type testRoleDB struct {
+	RoleDB
+	create func(*Role) error
+	update func(*Role) error
+	delete func(int64) error
+	byID   func(int64) (Role, error)
+	byIDs  func(...int64) ([]Role, error)
+}
+
+func (t *testRoleDB) Create(mr *Role) error {
+	if t.create != nil {
+		return t.create(mr)
+	}
+
+	return nil
+}
+
+func (t *testRoleDB) Update(mr *Role) error {
+	if t.update != nil {
+		return t.update(mr)
+	}
+
+	return nil
+}
+
+func (t *testRoleDB) Delete(id int64) error {
+	if t.delete != nil {
+		return t.delete(id)
+	}
+
+	return nil
+}
+
+func (t *testRoleDB) ByID(id int64) (Role, error) {
+	if t.byID != nil {
+		return t.byID(id)
+	}
+
+	return Role{}, nil
+}
+
+func (t *testRoleDB) ByIDs(id ...int64) ([]Role, error) {
+	if t.byIDs != nil {
+		return t.byIDs(id...)
+	}
+
+	return []Role{}, nil
+}
+
 func dropRolesTable(db *gorm.DB) {
 	db.DropTableIfExists(&Role{})
 }
@@ -111,6 +160,300 @@ func TestPermissions_MarshalJSON(t *testing.T) {
 			assert.JSONEq(t, string(cs.out), string(b))
 		})
 	}
+}
+
+func TestRoleService_Create(t *testing.T) {
+	rdb := &testRoleDB{}
+	rs := NewRoleService(nil)
+	rs.(*roleService).RoleService.(*roleValidator).RoleDB = rdb
+
+	var cases = []struct {
+		name    string
+		role    *Role
+		outrole *Role
+		outerr  error
+		setup   func(t *testing.T)
+	}{
+		{
+			"labelAdminNotAllowed",
+			&Role{Label: "admin", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			nil,
+		},
+		{
+			"labelUserNotAllowed",
+			&Role{Label: "user", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			nil,
+		},
+		{
+			"labelEmpty",
+			&Role{Label: "", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrRequired},
+			nil,
+		},
+		{
+			"labelTaken",
+			&Role{Label: "new label", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			func(t *testing.T) {
+				rdb.create = func(r *Role) error {
+					cr := NewRole()
+					cr.Label = "new label"
+					cr.Permissions = PermissionWriteRatings
+
+					assert.Equal(t, &cr, r)
+					return ValidationError{"label": ErrDuplicate}
+				}
+			},
+		},
+		{
+			"labelTooShort",
+			&Role{Label: "dfg", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrTooShort},
+			nil,
+		},
+		{
+			"normalizes",
+			&Role{Label: "    DFGSDFLKJlkjlk TEST   ", Permissions: PermissionWriteRatings},
+			&Role{Label: "dfgsdflkjlkjlk test", Permissions: PermissionWriteRatings},
+			nil,
+			func(t *testing.T) {
+				rdb.create = func(r *Role) error {
+					cr := NewRole()
+					cr.Label = "dfgsdflkjlkjlk test"
+					cr.Permissions = PermissionWriteRatings
+
+					assert.Equal(t, &cr, r)
+					return nil
+				}
+			},
+		},
+		{
+			"ok",
+			&Role{Label: "alabel", Permissions: PermissionWriteRatings | PermissionReadRatings},
+			&Role{ID: 99, Label: "alabel", Permissions: PermissionWriteRatings | PermissionReadRatings},
+			nil,
+			func(t *testing.T) {
+				rdb.create = func(r *Role) error {
+					cr := NewRole()
+					cr.Label = "alabel"
+					cr.Permissions = PermissionWriteRatings | PermissionReadRatings
+
+					assert.Equal(t, &cr, r)
+					r.ID = 99
+					return nil
+				}
+			},
+		},
+	}
+
+	for _, cs := range cases {
+		t.Run(cs.name, func(t *testing.T) {
+			if cs.setup != nil {
+				cs.setup(t)
+			}
+
+			err := rs.Create(cs.role)
+
+			if cs.outerr != nil {
+				assert.Error(t, err)
+				assert.True(t, xerrors.Is(err, cs.outerr),
+					"errors must match, expected %v, got %v", cs.outerr, err)
+
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, cs.outrole, cs.role)
+			}
+		})
+	}
+}
+
+func TestRoleService_Update(t *testing.T) {
+	// Setup mock database
+	rdb := &testRoleDB{}
+	rs := NewRoleService(nil)
+	rs.(*roleService).RoleService.(*roleValidator).RoleDB = rdb // Mock
+
+	// Test Cases
+	var cases = []struct {
+		name    string
+		role    *Role
+		outrole *Role
+		outerr  error
+		setup   func(t *testing.T)
+	}{
+		{
+			"labelAdminNotAllowed",
+			&Role{ID: 99, Label: "admin", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			nil,
+		},
+		{
+			"labelUserNotAllowed",
+			&Role{ID: 99, Label: "user", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			nil,
+		},
+		{
+			"adminIDReadOnly",
+			&Role{ID: 1, Label: "update admin label", Permissions: PermissionReadUsers},
+			nil,
+			ErrReadOnly,
+			nil,
+		},
+		{
+			"userIDReadOnly",
+			&Role{ID: 2, Label: "update admin label", Permissions: PermissionReadUsers},
+			nil,
+			ErrReadOnly,
+			nil,
+		},
+		{
+			"labelEmpty",
+			&Role{ID: 99, Label: "", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrRequired},
+			nil,
+		},
+		{
+			"labelTaken",
+			&Role{ID: 99, Label: "new label", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrDuplicate},
+			func(t *testing.T) {
+				rdb.update = func(r *Role) error {
+					cr := NewRole()
+					cr.ID = 99
+					cr.Label = "new label"
+					cr.Permissions = PermissionWriteRatings
+
+					assert.Equal(t, &cr, r)
+					return ValidationError{"label": ErrDuplicate}
+				}
+			},
+		},
+		{
+			"labelTooShort",
+			&Role{ID: 99, Label: "dfg", Permissions: PermissionWriteRatings},
+			nil,
+			ValidationError{"label": ErrTooShort},
+			nil,
+		},
+		{
+			"normalizes",
+			&Role{ID: 99, Label: "    DFGSDFLKJlkjlk TEST   ", Permissions: PermissionWriteRatings},
+			&Role{ID: 99, Label: "dfgsdflkjlkjlk test", Permissions: PermissionWriteRatings},
+			nil,
+			func(t *testing.T) {
+				rdb.update = func(r *Role) error {
+					cr := NewRole()
+					cr.ID = 99
+					cr.Label = "dfgsdflkjlkjlk test"
+					cr.Permissions = PermissionWriteRatings
+
+					assert.Equal(t, &cr, r)
+					return nil
+				}
+			},
+		},
+		{
+			"ok",
+			&Role{ID: 99, Label: "    DFGSDFLKJlkjlk TEST   ", Permissions: PermissionWriteRatings},
+			&Role{ID: 99, Label: "dfgsdflkjlkjlk test", Permissions: PermissionWriteRatings},
+			nil,
+			func(t *testing.T) {
+				rdb.update = func(r *Role) error {
+					cr := NewRole()
+					cr.ID = 99
+					cr.Label = "dfgsdflkjlkjlk test"
+					cr.Permissions = PermissionWriteRatings
+
+					assert.Equal(t, &cr, r)
+					return nil
+				}
+			},
+		},
+	}
+
+	for _, cs := range cases {
+		t.Run(cs.name, func(t *testing.T) {
+			if cs.setup != nil {
+				cs.setup(t)
+			}
+
+			err := rs.Update(cs.role)
+
+			if cs.outerr != nil {
+				assert.Error(t, err)
+				assert.True(t, xerrors.Is(err, cs.outerr),
+					"errors must match, expected %v, got %v", cs.outerr, err)
+
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, cs.outrole, cs.role)
+			}
+
+			*rdb = testRoleDB{}
+		})
+	}
+}
+
+func TestRoleService_Delete(t *testing.T) {
+	rdb := &testRoleDB{}
+	rs := NewRoleService(nil)
+	rs.(*roleService).RoleService.(*roleValidator).RoleDB = rdb // Mock
+
+	t.Run("mustNotDeleteAdmin", func(t *testing.T) {
+		rdb.delete = nil
+
+		err := rs.Delete(1)
+
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, ErrReadOnly))
+	})
+
+	t.Run("mustNotDeleteUser", func(t *testing.T) {
+		rdb.delete = nil
+
+		err := rs.Delete(2)
+
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, ErrReadOnly))
+	})
+
+	t.Run("dbErrors", func(t *testing.T) {
+		rdb.delete = func(id int64) error {
+			assert.Equal(t, int64(888), id)
+			return ErrNotFound
+		}
+
+		err := rs.Delete(888)
+
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, ErrNotFound))
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		var called bool
+		rdb.delete = func(id int64) error {
+			assert.Equal(t, int64(888), id)
+			called = true
+			return nil
+		}
+
+		err := rs.Delete(888)
+
+		assert.NoError(t, err)
+		assert.True(t, called)
+	})
 }
 
 func TestRoleGORM_Create(t *testing.T) {
