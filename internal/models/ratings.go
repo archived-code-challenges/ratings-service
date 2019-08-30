@@ -2,11 +2,47 @@ package models
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"golang.org/x/xerrors"
 )
+
+// RatingService defines a set of methods to be used when dealing with ratings.
+type RatingService interface {
+	RatingDB
+}
+
+// RatingDB defines how the service interacts with the database.
+type RatingDB interface {
+	// Create adds a rating to the system. A target, score and userId are
+	// required. The input parameter will be modified with normalised and
+	// validated values and ID will be set to the new rating ID.
+	//
+	// Use NewRating() to use appropriate default values for the fields.
+	//
+	// Score field can be any number between -2,147,483,648 to 2,147,483,647.
+	Create(*Rating) error
+
+	// Update updates a rating in the system. A target, score and userId are
+	// required. The input parameter will be modified with normalised
+	// and validated values.
+	//
+	// Use NewRating() to use appropriate default values for the fields.
+	//
+	// The admin and user rating cannot be updated.
+	Update(*Rating) error
+
+	// Delete removes a rating by ID.
+	Delete(int64) error
+
+	// ByID retrieves a rating by ID.
+	ByID(int64) (Rating, error)
+
+	// ByTarget retrieves a list of ratings by their common target ID.
+	ByTarget(int64) ([]Rating, error)
+}
 
 // A Rating represents a valoration in the system from a user to an object.
 type Rating struct {
@@ -46,6 +82,141 @@ func NewRating() Rating {
 		Active:    true,
 		Anonymous: true,
 		Extra:     json.RawMessage(`{}`),
+	}
+}
+
+type ratingService struct {
+	RatingService
+}
+
+// NewRatingService instantiates a new RatingService implementation with db as the
+// backing database.
+func NewRatingService(db *gorm.DB) RatingService {
+	return &ratingService{
+		RatingService: &ratingValidator{
+			RatingDB: &ratingGorm{db},
+		},
+	}
+}
+
+type ratingValidator struct {
+	RatingDB
+}
+
+func (rv *ratingValidator) Create(rating *Rating) error {
+	err := rv.runValFuncs(rating,
+		rv.idSetToZero,
+		rv.setDate,
+		rv.targetRequired,
+		rv.scoreRequired,
+		rv.userIDRequired,
+		rv.commentLength,
+		rv.extraLength,
+		rv.targetInvalid,
+		rv.userIDInvalid,
+	)
+	if err != nil {
+		return err
+	}
+
+	return rv.RatingDB.Create(rating)
+}
+
+type ratingValFn func(r *Rating) error
+
+func (rv *ratingValidator) runValFuncs(r *Rating, fns ...func() (string, ratingValFn)) error {
+	return runValidationFunctions(r, fns)
+}
+
+// idSetToZero sets interface id to 0. It does not return any errors.
+func (rv *ratingValidator) idSetToZero() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		r.ID = 0
+		return nil
+	}
+}
+
+// setDate sets date to now. It does not return any errors.
+func (rv *ratingValidator) setDate() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		nowEpoch := time.Now().Unix()
+		r.Date = nowEpoch
+		return nil
+	}
+}
+
+// targetRequired returns an error if the target is 0. It may return ErrRequired.
+func (rv *ratingValidator) targetRequired() (string, ratingValFn) {
+	return "target", func(r *Rating) error {
+		if r.Target == 0 {
+			return ErrRequired
+		}
+		return nil
+	}
+}
+
+// targetInvalid returns an error if the target is less than 1. It may return
+// ErrInvalid.
+func (rv *ratingValidator) targetInvalid() (string, ratingValFn) {
+	return "target", func(r *Rating) error {
+		if r.Target < 1 {
+			return ErrInvalid
+		}
+		return nil
+	}
+}
+
+// scoreRequired returns an error if the score is 0. It may return ErrRequired.
+func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
+	return "score", func(r *Rating) error {
+		if r.Score == 0 {
+			return ErrRequired
+		}
+		return nil
+	}
+}
+
+// userIDRequired returns an error if the userId is 0. It may return ErrRequired.
+func (rv *ratingValidator) userIDRequired() (string, ratingValFn) {
+	return "userId", func(r *Rating) error {
+		if r.UserID == 0 {
+			return ErrRequired
+		}
+		return nil
+	}
+}
+
+// userIDRequired returns an error if the userId is 0. It may return ErrRequired.
+func (rv *ratingValidator) userIDInvalid() (string, ratingValFn) {
+	return "userId", func(r *Rating) error {
+		if r.UserID < 1 {
+			return ErrInvalid
+		}
+		return nil
+	}
+}
+
+// commentLength makes sure the comment has a maximum of 512 characters.
+// It may return ErrTooLong.
+func (rv *ratingValidator) commentLength() (string, ratingValFn) {
+	return "comment", func(r *Rating) error {
+		if len(r.Comment) > 512 {
+			return ErrTooLong
+		}
+
+		return nil
+	}
+}
+
+// extraLength makes sure the extra has a maximum of 512 characters.
+// It may return ErrTooLong.
+func (rv *ratingValidator) extraLength() (string, ratingValFn) {
+	return "extra", func(r *Rating) error {
+		if len(r.Extra) > 512 {
+			return ErrTooLong
+		}
+
+		return nil
 	}
 }
 
