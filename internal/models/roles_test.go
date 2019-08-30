@@ -60,7 +60,7 @@ func (t *testRoleDB) ByIDs(id ...int64) ([]Role, error) {
 }
 
 func dropRolesTable(db *gorm.DB) {
-	db.DropTableIfExists(&Role{})
+	db.DropTableIfExists(&Rating{}, &User{}, &Role{})
 }
 
 func TestPermissions_UnmarshalJSON(t *testing.T) {
@@ -621,6 +621,29 @@ func TestRoleGORM_Delete(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("inUse", func(t *testing.T) {
+		db := setupGorm(t)
+		user := &User{
+			ID:       99,
+			RoleID:   99,
+			Active:   true,
+			Email:    "test@test.com",
+			Password: "TestPasswordHAsh",
+		}
+		role := &Role{
+			ID:          99,
+			Label:       "test",
+			Permissions: 15,
+		}
+
+		require.NoError(t, db.Save(role).Error)
+		require.NoError(t, db.Save(user).Error)
+
+		err := (&roleGorm{db}).Delete(role.ID)
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, ErrInUse), "must indicate that the role is being used by an existing user")
+	})
+
 	t.Run("ok", func(t *testing.T) {
 		db := setupGorm(t)
 		role := &Role{
@@ -677,6 +700,14 @@ func TestRoleGORM_ByID(t *testing.T) {
 }
 
 func TestRoleGORM_ByIDs(t *testing.T) {
+	t.Run("notFound", func(t *testing.T) {
+		db := setupGorm(t)
+
+		users, err := (&roleGorm{db}).ByIDs(999)
+
+		assert.NoError(t, err)
+		assert.Empty(t, users)
+	})
 
 	t.Run("otherErrors", func(t *testing.T) {
 		db := setupGorm(t)

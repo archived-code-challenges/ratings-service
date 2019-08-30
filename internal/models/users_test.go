@@ -73,7 +73,7 @@ func (t *testUserDB) Update(u *User) error {
 }
 
 func dropUsersTable(db *gorm.DB) {
-	db.DropTableIfExists(&User{})
+	db.DropTableIfExists(&Rating{}, &User{})
 }
 
 type testSigner struct {

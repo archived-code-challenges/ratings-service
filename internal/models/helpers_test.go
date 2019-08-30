@@ -33,6 +33,7 @@ func setupGorm(t *testing.T) *gorm.DB {
 	}
 
 	err := db.DropTableIfExists(
+		&Rating{},
 		&User{},
 		&Role{},
 	).Error
