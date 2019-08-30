@@ -18,8 +18,10 @@ type Roles struct {
 // NewRoles creates a new Roles controller.
 func NewRoles(rs models.RoleService) *Roles {
 	var ev views.Error
+	ev.SetCode(models.ErrDuplicate, http.StatusConflict)
 	ev.SetCode(models.ErrFieldReadOnly, http.StatusConflict)
 	ev.SetCode(models.ErrReadOnly, http.StatusConflict)
+	ev.SetCode(ErrNotFound, http.StatusNotFound)
 	ev.SetCode(models.ErrNotFound, http.StatusNotFound)
 
 	return &Roles{

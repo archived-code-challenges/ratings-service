@@ -10,8 +10,9 @@ import (
 
 // Services aggregates all services provided by the models package.
 type Services struct {
-	User UserService
-	Role RoleService
+	User   UserService
+	Role   RoleService
+	Rating RatingService
 
 	db *gorm.DB
 }
@@ -53,6 +54,8 @@ func NewServices(c *Config) (*Services, error) {
 		return nil, wrap("can't start UserService", err)
 	}
 
+	s.Rating = NewRatingService(s.db)
+
 	err = s.createDefaultValues()
 	if err != nil {
 		return nil, wrap("can't insert default values", err)
@@ -76,6 +79,7 @@ func (s *Services) autoMigrate() error {
 	err := s.db.
 		AutoMigrate(&Role{}).
 		AutoMigrate(&User{}).AddForeignKey("role_id", "roles(id)", "RESTRICT", "RESTRICT").
+		AutoMigrate(&Rating{}).AddForeignKey("user_id", "users(id)", "RESTRICT", "RESTRICT").
 		Error
 	if err != nil {
 		return err

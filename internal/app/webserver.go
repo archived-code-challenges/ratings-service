@@ -15,9 +15,10 @@ type webServer struct {
 	eng    *gin.Engine
 	server http.Server
 
-	staticCtrl *controllers.Static
-	usersCtrl  *controllers.Users
-	rolesCtrl  *controllers.Roles
+	staticCtrl  *controllers.Static
+	usersCtrl   *controllers.Users
+	rolesCtrl   *controllers.Roles
+	ratingsCtrl *controllers.Ratings
 
 	mwAuthenticated gin.HandlerFunc
 }
@@ -30,6 +31,7 @@ func newWebServer(port string, svc *models.Services) *webServer {
 	ws.staticCtrl = controllers.NewStatic()
 	ws.usersCtrl = controllers.NewUsers(svc.User)
 	ws.rolesCtrl = controllers.NewRoles(svc.Role)
+	ws.ratingsCtrl = controllers.NewRatings(svc.Rating)
 
 	ws.setupRoutes()
 	ws.server = http.Server{
@@ -89,6 +91,7 @@ func (ws *webServer) setupRoutes() {
 
 			ws.setupUsers(apimux)
 			ws.setupRoles(apimux)
+			ws.setupRatings(apimux)
 		}
 	}
 
@@ -140,5 +143,12 @@ func (ws *webServer) setupRoles(mux *gin.RouterGroup) {
 	mux.DELETE("/roles/:id", middleware.Can(
 		models.PermissionWriteUsers,
 		ws.rolesCtrl.Delete,
+	))
+}
+
+func (ws *webServer) setupRatings(mux *gin.RouterGroup) {
+	mux.POST("/ratings/", middleware.Can(
+		models.PermissionWriteRatings,
+		ws.ratingsCtrl.Create,
 	))
 }
