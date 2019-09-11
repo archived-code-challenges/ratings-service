@@ -34,8 +34,9 @@ func parseJSON(c *gin.Context, dst interface{}) error {
 	return nil
 }
 
-// getParamInt retrieves an int64 parameter from the URL path of a request. In case the parameter is not
-// an integer, ErrNotFound is returned. Negative integers are accepted.
+// getParamInt retrieves an int64 parameter from the URL path of a request. In
+// case the parameter is not an integer, ErrNotFound is returned.
+// Negative integers are accepted.
 func getParamInt(c *gin.Context, paramName string) (int64, error) {
 	p := c.Param(paramName)
 
@@ -47,8 +48,9 @@ func getParamInt(c *gin.Context, paramName string) (int64, error) {
 	return v, nil
 }
 
-// getQueryListInt retrieves a list of int64 parameters from a request's query string. In case paramName is not found,
-// nil is returned for both return values. If there's a failure in parsing the integers in the list, a ValidationError
+// getQueryListInt retrieves a list of int64 parameters from a request's query string.
+// In case paramName is not found, nil is returned for both return values.
+// If there's a failure in parsing the integers in the list, a ValidationError
 // is returned.
 func getQueryListInt(c *gin.Context, paramName string) ([]int64, error) {
 	p := c.Query(paramName)
@@ -73,8 +75,9 @@ func getQueryListInt(c *gin.Context, paramName string) ([]int64, error) {
 	return ret, nil
 }
 
-// getEncodedListInt retrieves a list of int64 parameters from a query string. In case paramName is not found,
-// nil is returned for both return values. If there's a failure in parsing the integers in the list, a ValidationError
+// getEncodedListInt retrieves a list of int64 parameters from a query string.
+// In case paramName is not found, nil is returned for both return values.
+// If there's a failure in parsing the integers in the list, a ValidationError
 // is returned.
 func getEncodedListInt(queryString, paramName string) ([]int64, error) {
 	values, err := url.ParseQuery(queryString)
@@ -102,4 +105,20 @@ func getEncodedListInt(queryString, paramName string) ([]int64, error) {
 	}
 
 	return ret, nil
+}
+
+// getQueryParam retrieves an int64 parameter from the URL path of a request.
+// In case the parameter is not an integer, ErrNotFound is returned.
+// Negative integers are accepted.
+func getQueryParam(c *gin.Context, paramName string) (int64, error) {
+	p := c.Query("target")
+
+	id, err := strconv.ParseInt(p, 10, 0)
+	if err != nil {
+		return 0, models.ValidationError{
+			"target": ErrParseError,
+		}
+	}
+
+	return id, nil
 }
