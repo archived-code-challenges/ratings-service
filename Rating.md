@@ -21,14 +21,16 @@ To make this API reusable and "end-user independent", the items will be stored w
 | **id**        | int64     |       | Rating ID in the database. |
 | **active**    | bool      | true  | Whether the rate is active. |
 | **anonymous** | bool      | true  | Whether the rating is anonymous or not. |
-| **comment**   | string    |       | The commentary attached to the rating. |
+| **comment**   | string    |       | The commentary attached to the rating. (max 255 characters) |
 | **date**      | time.Time |       | Date when the rating was submitted or updated. |
-| **extra**     | json      |  {}   | field to store stuff like logistics, color, date... in a json format. |
+| **extra**     | json      |  {}   | field to store stuff like logistics, color, date... in a json format. (max 255 characters) |
 | **score**     | int       |       | Numeral value that will indicate the score that the target got in a rating. |
 | **target**    | int64     |   *   | Numeral value that contains the target entity of the rating. |
-| **userId**    | int64     |       | The ID of the user attached to this rating. |
+| **userId**    | int64     |   **  | The ID of the user attached to this rating. |
 
 *In a full adaptation of this API, the **target** can refer to a real object, on another table of the database. By now, we will treat all objects as a number for the sake of brevity.
+
+**userId will be auto-assigned by the system to the user making the request, as denoted previously.
 
 The pair (userId, target) needs to be unique in the system // One comment per user.
 
@@ -47,11 +49,13 @@ Content-Type: application/json
     "comment": "The article was amazing, but the case was a bit damaged.",
     "score": 4,
     "target": 9999555,
-    "userId": 999
 }
 ```
 
-The **active**, **anonymous** and **extra** fields are optional, and the defaults apply if not supplied.
+**score** and **target** are mandatory.
+The **active**, **anonymous**, **comment** and **extra** fields are optional, and the defaults apply if not supplied.
+
+**date** and **userId** will be provided by the application.
 
 **Response:**
 
@@ -108,7 +112,9 @@ Pragma: no-cache
 | score field is required | 400 | validation_error | score: required |
 | target field is required | 400 | validation_error | target: required |
 | target field is invalid | 400 | validation_error | target: invalid |
-| userId field is invalid | 400 | validation_error | userId: reference_not_found |
+| user field is required | 400 | validation_error | user: required |
+| user field is invalid | 400 | validation_error | user: invalid |
+| userId field is invalid | 404 | validation_error | userId: reference_not_found |
 | Internal error | 500 | server_error | |
 
 
@@ -263,7 +269,10 @@ Content-Type: application/json
 
 The **id** path parameter refers to the ID of the rating to be updated.
 
-All fields are mandatory.
+**score** is mandatory.
+The **active**, **anonymous**, **comment** and **extra** fields are optional, and the defaults apply if not supplied.
+
+**date**, **target** and **userId** will be provided by the application.
 
 **Response:**
 
@@ -303,8 +312,6 @@ Pragma: no-cache
   "fields": [
         "date",
         "extra",
-        "target",
-        "userId"
   ]
 }
 ```
@@ -316,9 +323,13 @@ Pragma: no-cache
 | extra content is invalid | 400 | validation_error | extra: invalid |
 | extra must have max 255 characters | 400 | validation_error | extra: too_long |
 | score field is required | 400 | validation_error | score: required |
+| user field is required | 400 | validation_error | user: required |
+| user field is invalid | 400 | validation_error | user: invalid |
 | Invalid Authorization header | 401 | unauthorised | |
 | Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
 | User does not have a `writeRatings` permission | 403 | forbidden | |
+| target field is invalid | 404 | validation_error | target: reference_not_found |
+| userId field is invalid | 404 | validation_error | userId: reference_not_found |
 | Primary key already exists | 409 | validation_error | id: id_taken |
 | Resource cannot be modified or deleted | 409 | validation_error | id: read_only |
 | Resource cannot be modified or deleted | 409 | validation_error | userId: read_only |

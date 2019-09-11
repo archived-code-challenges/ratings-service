@@ -131,10 +131,10 @@ func TestRatingService_Create(t *testing.T) {
 			nil,
 		},
 		{
-			"userIdInvalid",
+			"userInvalid",
 			&Rating{Score: 10, Target: 999, User: &User{ID: -999}},
 			nil,
-			ValidationError{"userId": ErrInvalid},
+			ValidationError{"user": ErrInvalid},
 			nil,
 		},
 		{
@@ -261,10 +261,10 @@ func TestRatingService_Update(t *testing.T) {
 			nil,
 		},
 		{
-			"userIdInvalid",
+			"userInvalid",
 			&Rating{ID: 99, Score: 10, User: &User{ID: -999}},
 			nil,
-			ValidationError{"userId": ErrInvalid},
+			ValidationError{"user": ErrInvalid},
 			nil,
 		},
 		{

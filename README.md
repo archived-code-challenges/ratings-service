@@ -1,6 +1,12 @@
 Overview
 ========
 
+RatingsApp is designed to allow authentication and authorization of users to a rating system. As well as the ability to CRUD a database of ratings.
+
+This system is able to detect which user is interacting with the system and allow you to make any transaction in the database as long as the user has the relevant privileges.
+
+Once you have a considerable number of ratings, you can list one by one or by target, which points to a product or object to which the rating is directed.
+
 
 Documentation
 =============
@@ -34,14 +40,20 @@ TIP: You can reset the service with the following command
 
     docker-compose down && docker-compose up -d
 
+
 Tests
 -----
 
 In the docker-compose container shell, you may execute the tests by issuing:
 
-    go test -mod=vendor -cover -v -p 1 -count=1 ./...
+    go test -mod=vendor -cover -v -p 1 -count=1 -coverprofile=cover.out ./internal/...
 
 The -count=1 makes sure the test cache is not used. The packages in internal and the e2etests must be tests separately; this prevents issues where multiple packages make use of the test database.
+
+You can check a web-based coverage report by launching the following command on the **host**:
+
+    go tool cover -html=cover.out
+
 
 Hot reload
 ----------
@@ -54,10 +66,12 @@ The utility will not die if it fails to build, which is quite nice.
 
 TIP: Remember to clean (drop and create) the database if a significant change in the schema (like a unique constraint) is made. Realize will not do it for you.
 
+
 Debug backend
 -------------
 
 Configure your VSCode to debug Go code using Delve (check on VSCode wiki). Make sure you set the right environment variables with the database connection details. It's easier to debug the backend locally, so you'll need all Go 1.12 tooling installed.
+
 
 Migrations
 ----------
@@ -65,6 +79,7 @@ Migrations
 This project uses GORM Migration tool and therefore Auto Migration is active. This will automatically migrate your schema, to keep your schema update to date
 
 WARNING: AutoMigrate will ONLY create tables, missing columns and missing indexes, and WON’T change existing column’s type or delete unused columns to protect your data.
+
 
 Vendoring
 ---------
@@ -82,13 +97,13 @@ This will result OK if everything works and we will be inside of the docker cont
 ...
 Two options from here:
 
-1. Realize allow us to test the API from a client like POSTMAN.
+1. Realize allow us to test the API from a client like *Postman*.
 
-    `./realize start`
+    `realize start`
 
 2. With go test we can test the components separately.
 
-    `go test -mod=vendor -cover -v -p 1 ./...`
+    `go test -mod=vendor -cover -v -p 1 -count=1 ./...`
 
 
 Deployment

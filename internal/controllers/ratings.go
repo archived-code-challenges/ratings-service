@@ -21,6 +21,7 @@ func NewRatings(rs models.RatingService) *Ratings {
 	var ev views.Error
 	ev.SetCode(ErrNotFound, http.StatusNotFound)
 	ev.SetCode(models.ErrNotFound, http.StatusNotFound)
+	ev.SetCode(models.ErrRefNotFound, http.StatusNotFound)
 
 	return &Ratings{
 		rs:      rs,

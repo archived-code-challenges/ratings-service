@@ -110,14 +110,14 @@ type ratingValidator struct {
 func (rv *ratingValidator) Create(rating *Rating) error {
 	err := rv.runValFuncs(rating,
 		rv.idSetToZero,
+		rv.userInvalid,
+		rv.validateUserID,
 		rv.targetRequired,
 		rv.scoreRequired,
-		rv.userIDRequired,
+		rv.userRequired,
 		rv.commentLength,
 		rv.extraLength,
 		rv.targetInvalid,
-		rv.userIDInvalid,
-		rv.validateUserID,
 		rv.setDate,
 	)
 	if err != nil {
@@ -130,14 +130,13 @@ func (rv *ratingValidator) Create(rating *Rating) error {
 
 func (rv *ratingValidator) Update(rating *Rating) error {
 	err := rv.runValFuncs(rating,
+		rv.getTarget,
+		rv.userInvalid,
+		rv.validateUserID,
 		rv.scoreRequired,
-		rv.userIDRequired,
+		rv.userRequired,
 		rv.commentLength,
 		rv.extraLength,
-		rv.userIDInvalid,
-		rv.validateUserID,
-		rv.getTarget,
-		// rv.targetInvalid,
 		rv.setDate,
 	)
 	if err != nil {
@@ -220,8 +219,8 @@ func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
 	}
 }
 
-// userIDRequired returns an error if the userId is 0. It may return ErrRequired.
-func (rv *ratingValidator) userIDRequired() (string, ratingValFn) {
+// userRequired returns an error if the userId is 0. It may return ErrRequired.
+func (rv *ratingValidator) userRequired() (string, ratingValFn) {
 	return "user", func(r *Rating) error {
 		if r.User == nil {
 			return ErrRequired
@@ -230,22 +229,22 @@ func (rv *ratingValidator) userIDRequired() (string, ratingValFn) {
 	}
 }
 
-// userIDInvalid returns an error if the userId is 0. It may return ErrRequired.
-func (rv *ratingValidator) userIDInvalid() (string, ratingValFn) {
-	return "userId", func(r *Rating) error {
+// userInvalid returns an error if the User ID is 0. It may return ErrInvalid.
+func (rv *ratingValidator) userInvalid() (string, ratingValFn) {
+	return "user", func(r *Rating) error {
 		if r.User != nil {
 			if r.User.ID < 1 {
 				return ErrInvalid
 			}
 			return nil
 		}
-		return nil // error handled by userIDRequired
+		return nil // error handled by userRequired
 	}
 }
 
-// validateUserID returns an error if the user ID given can not be found in the
-// database, meaning that not exists. It may return ErrRefNotFound or assign an
-// ID to the user if the user could be found.
+// validateUserID returns an error if the user ID obtained from the context can
+// not be found in the database, meaning that not exists. It may return
+// ErrRefNotFound or assign an ID to the user if the user could be found.
 func (rv *ratingValidator) validateUserID() (string, ratingValFn) {
 	return "userId", func(r *Rating) error {
 		// User must be in the context before being validated.
@@ -258,7 +257,7 @@ func (rv *ratingValidator) validateUserID() (string, ratingValFn) {
 			r.UserID = r.User.ID
 			return nil
 		}
-		return nil // error handled by userIDRequired
+		return nil // error handled by userRequired
 	}
 }
 
