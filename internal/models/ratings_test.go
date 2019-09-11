@@ -15,6 +15,9 @@ import (
 type testRatingDB struct {
 	RatingDB
 	create func(*Rating) error
+	update func(*Rating) error
+	delete func(int64) error
+	byID   func(int64) (Rating, error)
 }
 
 func (t *testRatingDB) Create(mr *Rating) error {
@@ -25,14 +28,42 @@ func (t *testRatingDB) Create(mr *Rating) error {
 	return nil
 }
 
+func (t *testRatingDB) Update(mr *Rating) error {
+	if t.update != nil {
+		return t.update(mr)
+	}
+
+	return nil
+}
+
+func (t *testRatingDB) Delete(id int64) error {
+	if t.delete != nil {
+		return t.delete(id)
+	}
+
+	return nil
+}
+
+func (t *testRatingDB) ByID(id int64) (Rating, error) {
+	if t.byID != nil {
+		return t.byID(id)
+	}
+
+	return Rating{}, nil
+}
+
 func dropRatingsTable(db *gorm.DB) {
 	db.DropTableIfExists(&Rating{})
 }
 
 func TestRatingService_Create(t *testing.T) {
-	rtdb := &testRatingDB{}
-	rs := NewRatingService(nil)
-	rs.(*ratingService).RatingService.(*ratingValidator).RatingDB = rtdb
+	tudb := &testUserDB{}
+	us, _ := NewUserService(nil, nil, []byte(testJWTSecret))
+	us.(*userService).UserService.(*userValidator).UserDB = tudb
+
+	trdb := &testRatingDB{}
+	rs := NewRatingService(nil, us)
+	rs.(*ratingService).RatingService.(*ratingValidator).RatingDB = trdb
 
 	var cases = []struct {
 		name      string
@@ -43,23 +74,23 @@ func TestRatingService_Create(t *testing.T) {
 	}{
 		{
 			"targetRequired",
-			&Rating{Score: 10, UserID: 1},
+			&Rating{Score: 10, User: &User{ID: 1}},
 			nil,
 			ValidationError{"target": ErrRequired},
 			nil,
 		},
 		{
 			"scoreRequired",
-			&Rating{Target: 999, UserID: 1},
+			&Rating{Target: 999, User: &User{ID: 1}},
 			nil,
 			ValidationError{"score": ErrRequired},
 			nil,
 		},
 		{
-			"userIdRequired",
+			"userRequired",
 			&Rating{Score: 10, Target: 999},
 			nil,
-			ValidationError{"userId": ErrRequired},
+			ValidationError{"user": ErrRequired},
 			nil,
 		},
 		{
@@ -68,7 +99,9 @@ func TestRatingService_Create(t *testing.T) {
 				Comment: strings.Repeat("a", 513),
 				Score:   10,
 				Target:  999,
-				UserID:  1,
+				User: &User{
+					ID: 1,
+				},
 			},
 			nil,
 			ValidationError{"comment": ErrTooLong},
@@ -78,11 +111,13 @@ func TestRatingService_Create(t *testing.T) {
 			"extraTooLong",
 			&Rating{
 				Extra: json.RawMessage(`{
-					"too_long":"` + strings.Repeat("a", 512) + `"
-				}`),
+						"too_long":"` + strings.Repeat("a", 512) + `"
+					}`),
 				Score:  10,
 				Target: 999,
-				UserID: 1,
+				User: &User{
+					ID: 1,
+				},
 			},
 			nil,
 			ValidationError{"extra": ErrTooLong},
@@ -90,21 +125,21 @@ func TestRatingService_Create(t *testing.T) {
 		},
 		{
 			"targetInvalid",
-			&Rating{Score: 10, Target: -999, UserID: 1},
+			&Rating{Score: 10, Target: -999, User: &User{ID: 1}},
 			nil,
 			ValidationError{"target": ErrInvalid},
 			nil,
 		},
 		{
 			"userIdInvalid",
-			&Rating{Score: 10, Target: 999, UserID: -999},
+			&Rating{Score: 10, Target: 999, User: &User{ID: -999}},
 			nil,
 			ValidationError{"userId": ErrInvalid},
 			nil,
 		},
 		{
 			"ok",
-			&Rating{Score: 10, Target: 999, UserID: 1},
+			&Rating{Score: 10, Target: 999, User: &User{ID: 1}},
 			&Rating{
 				ID:        99,
 				Active:    true,
@@ -116,7 +151,12 @@ func TestRatingService_Create(t *testing.T) {
 			},
 			nil,
 			func(t *testing.T) {
-				rtdb.create = func(rt *Rating) error {
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(1), id)
+
+					return User{ID: 1, Active: true, RoleID: 999}, nil
+				}
+				trdb.create = func(rt *Rating) error {
 					var crt Rating
 					crt.Score = 10
 					crt.Target = 999
@@ -158,6 +198,194 @@ func TestRatingService_Create(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRatingService_Update(t *testing.T) {
+	tudb := &testUserDB{}
+	us, _ := NewUserService(nil, nil, []byte(testJWTSecret))
+	us.(*userService).UserService.(*userValidator).UserDB = tudb
+
+	trdb := &testRatingDB{}
+	rs := NewRatingService(nil, us)
+	rs.(*ratingService).RatingService.(*ratingValidator).RatingDB = trdb
+
+	var cases = []struct {
+		name      string
+		rating    *Rating
+		outrating *Rating
+		outerr    error
+		setup     func(t *testing.T)
+	}{
+		{
+			"scoreRequired",
+			&Rating{ID: 99, User: &User{ID: 1}},
+			nil,
+			ValidationError{"score": ErrRequired},
+			nil,
+		},
+		{
+			"userIdRequired",
+			&Rating{ID: 99, Score: 10},
+			nil,
+			ValidationError{"user": ErrRequired},
+			nil,
+		},
+		{
+			"commentTooLong",
+			&Rating{
+				ID:      99,
+				Comment: strings.Repeat("a", 513),
+				Score:   10,
+				User: &User{
+					ID: 1,
+				},
+			},
+			nil,
+			ValidationError{"comment": ErrTooLong},
+			nil,
+		},
+		{
+			"extraTooLong",
+			&Rating{
+				ID: 99,
+				Extra: json.RawMessage(`{
+					"too_long":"` + strings.Repeat("a", 512) + `"
+				}`),
+				Score: 10,
+				User: &User{
+					ID: 1,
+				},
+			},
+			nil,
+			ValidationError{"extra": ErrTooLong},
+			nil,
+		},
+		{
+			"userIdInvalid",
+			&Rating{ID: 99, Score: 10, User: &User{ID: -999}},
+			nil,
+			ValidationError{"userId": ErrInvalid},
+			nil,
+		},
+		{
+			"notFound",
+			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			nil,
+			ValidationError{"id": ErrRefNotFound},
+			func(t *testing.T) {
+				trdb.byID = func(id int64) (Rating, error) {
+					return Rating{}, ErrNotFound
+				}
+			},
+		},
+		{
+			"userNotFound",
+			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			nil,
+			ValidationError{"userId": ErrRefNotFound},
+			func(t *testing.T) {
+				tudb.byID = func(id int64) (User, error) {
+					return User{}, ErrNotFound
+				}
+			},
+		},
+		{
+			"ok",
+			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			&Rating{
+				ID:        99,
+				Active:    true,
+				Anonymous: true,
+				Extra:     json.RawMessage(`{}`),
+				Score:     10,
+				Target:    999,
+				UserID:    1,
+			},
+			nil,
+			func(t *testing.T) {
+				trdb.byID = func(id int64) (Rating, error) {
+					assert.Equal(t, int64(99), id)
+
+					return Rating{ID: 99, Target: 999}, nil
+				}
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(1), id)
+
+					return User{ID: 1, Active: true, RoleID: 999}, nil
+				}
+				trdb.update = func(rt *Rating) error {
+					var crt Rating
+					crt.ID = 99
+					crt.Score = 10
+					crt.Target = 999
+					crt.UserID = 1
+
+					assert.NotZero(t, rt.Date)
+					rt.Date = 0 // Removes date to avoid mismatch
+
+					assert.Equal(t, &crt, rt)
+
+					rt.Active = true
+					rt.Anonymous = true
+					rt.Extra = json.RawMessage(`{}`)
+
+					return nil
+				}
+			},
+		},
+	}
+
+	for _, cs := range cases {
+		t.Run(cs.name, func(t *testing.T) {
+			if cs.setup != nil {
+				cs.setup(t)
+			}
+
+			err := rs.Update(cs.rating)
+
+			if cs.outerr != nil {
+				assert.Error(t, err)
+				assert.True(t, xerrors.Is(err, cs.outerr),
+					"errors must match, expected %v, got %v", cs.outerr, err)
+
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, cs.outrating, cs.rating)
+			}
+		})
+	}
+}
+
+func TestRatingService_Delete(t *testing.T) {
+	trdb := &testRatingDB{}
+	rs := NewRatingService(nil, nil)
+	rs.(*ratingService).RatingService.(*ratingValidator).RatingDB = trdb
+
+	t.Run("dbErrors", func(t *testing.T) {
+		trdb.delete = func(id int64) error {
+			assert.Equal(t, int64(888), id)
+			return ErrNotFound
+		}
+
+		err := rs.Delete(888)
+
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, ErrNotFound))
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		var called bool
+		trdb.delete = func(id int64) error {
+			assert.Equal(t, int64(888), id)
+			called = true
+			return nil
+		}
+
+		err := rs.Delete(888)
+
+		assert.NoError(t, err)
+		assert.True(t, called)
+	})
 }
 
 func TestRatingGORM_Create(t *testing.T) {
@@ -544,8 +772,7 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 		queryID int64
 		rating  *[]Rating
 		outerr  error
-		// equal   bool // Flag to assert Equal/Non-equal elements
-		setup func(t *testing.T, db *gorm.DB)
+		setup   func(t *testing.T, db *gorm.DB)
 	}{
 		{
 			"ok",
@@ -554,7 +781,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 				Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1},
 			},
 			nil,
-			// true,
 			func(t *testing.T, db *gorm.DB) {
 				require.NoError(t, db.Create(&Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1}).Error)
 			},
@@ -566,7 +792,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 				Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1},
 			},
 			nil,
-			// false,
 			func(t *testing.T, db *gorm.DB) {
 				require.NoError(t, db.Create(&Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1}).Error)
 				require.NoError(t, db.Create(&Rating{ID: 888, Active: true, Anonymous: true, Comment: "Awesome too", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 8974, UserID: 1}).Error)
@@ -580,7 +805,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 				Rating{ID: 888, Active: true, Anonymous: true, Comment: "Awesome too", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 99},
 			},
 			nil,
-			// false,
 			func(t *testing.T, db *gorm.DB) {
 				require.NoError(t, db.Create(&User{ID: 99, RoleID: 2, Email: "second@test.com", FirstName: "Second", Password: "TestPasswordHAshOther"}).Error)
 				require.NoError(t, db.Create(&Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1}).Error)
@@ -592,7 +816,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 			9999,
 			&[]Rating{},
 			nil,
-			// true,
 			func(t *testing.T, db *gorm.DB) {
 				require.NoError(t, db.Create(&Rating{ID: 999, Active: true, Anonymous: true, Comment: "Awesome", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1}).Error)
 				require.NoError(t, db.Create(&Rating{ID: 888, Active: true, Anonymous: true, Comment: "Awesome too", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 8974, UserID: 1}).Error)
@@ -603,7 +826,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 			999,
 			&[]Rating{},
 			nil,
-			// true,
 			nil,
 		},
 		{
@@ -611,7 +833,6 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 			999,
 			nil,
 			privateError("any internal private error"),
-			// true,
 			func(t *testing.T, db *gorm.DB) {
 				dropRatingsTable(db)
 			},
@@ -636,13 +857,8 @@ func TestRatingGORM_ByTarget(t *testing.T) {
 				}
 
 			} else {
-				// if !cs.equal {
-				// 	assert.NotEqual(t, cs.rating, &r)
-				// } else {
 				assert.NoError(t, err)
 				assert.Equal(t, cs.rating, &r)
-				// assert.Equal(t, len(*cs.rating), len(r), "Same length is expected when asserting a valid value.")
-				// }
 			}
 
 		})

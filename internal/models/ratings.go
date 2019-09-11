@@ -62,7 +62,7 @@ type Rating struct {
 	Date int64 `gorm:"type:bigint;not null" json:"date"`
 
 	// field to store stuff like logistics, color, date... in a json format.
-	Extra json.RawMessage `gorm:"not null"  json:"extra"`
+	Extra json.RawMessage `gorm:"not null" json:"extra"`
 
 	// Numeral value that will indicate the score that the target got in a rating.
 	// Score needs to be different than 0, but can be a negative value.
@@ -73,6 +73,9 @@ type Rating struct {
 
 	// The ID of the user attached to this rating.
 	UserID int64 `gorm:"unique_index:uix_ratings_user_id_target;type:bigint;not null" json:"userId"`
+
+	// User contains the data that belongs to the user making the request.
+	User *User `gorm:"-" json:"-"`
 }
 
 // NewRating creates a new Rating value with default field values applied.
@@ -90,22 +93,23 @@ type ratingService struct {
 
 // NewRatingService instantiates a new RatingService implementation with db as the
 // backing database.
-func NewRatingService(db *gorm.DB) RatingService {
+func NewRatingService(db *gorm.DB, us UserService) RatingService {
 	return &ratingService{
 		RatingService: &ratingValidator{
-			RatingDB: &ratingGorm{db},
+			RatingDB:    &ratingGorm{db},
+			userService: us,
 		},
 	}
 }
 
 type ratingValidator struct {
 	RatingDB
+	userService UserService
 }
 
 func (rv *ratingValidator) Create(rating *Rating) error {
 	err := rv.runValFuncs(rating,
 		rv.idSetToZero,
-		rv.setDate,
 		rv.targetRequired,
 		rv.scoreRequired,
 		rv.userIDRequired,
@@ -113,12 +117,35 @@ func (rv *ratingValidator) Create(rating *Rating) error {
 		rv.extraLength,
 		rv.targetInvalid,
 		rv.userIDInvalid,
+		rv.validateUserID,
+		rv.setDate,
 	)
 	if err != nil {
 		return err
 	}
 
+	rating.User = nil
 	return rv.RatingDB.Create(rating)
+}
+
+func (rv *ratingValidator) Update(rating *Rating) error {
+	err := rv.runValFuncs(rating,
+		rv.scoreRequired,
+		rv.userIDRequired,
+		rv.commentLength,
+		rv.extraLength,
+		rv.userIDInvalid,
+		rv.validateUserID,
+		rv.getTarget,
+		// rv.targetInvalid,
+		rv.setDate,
+	)
+	if err != nil {
+		return err
+	}
+
+	rating.User = nil
+	return rv.RatingDB.Update(rating)
 }
 
 type ratingValFn func(r *Rating) error
@@ -165,6 +192,24 @@ func (rv *ratingValidator) targetInvalid() (string, ratingValFn) {
 	}
 }
 
+// getTarget queries the rating to get its target before updating. If the rating
+// could not be retrieved, an ErrNotFound will be raised, meaning that there is
+// not a record on the database that matches with the rating ID.
+func (rv *ratingValidator) getTarget() (string, ratingValFn) {
+	return "id", func(r *Rating) error {
+		if r.ID > 0 {
+			rdb, err := rv.RatingDB.ByID(r.ID)
+			if err != nil {
+				if xerrors.Is(err, ErrNotFound) {
+					return ErrRefNotFound
+				}
+			}
+			r.Target = rdb.Target
+		}
+		return nil
+	}
+}
+
 // scoreRequired returns an error if the score is 0. It may return ErrRequired.
 func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
 	return "score", func(r *Rating) error {
@@ -177,21 +222,43 @@ func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
 
 // userIDRequired returns an error if the userId is 0. It may return ErrRequired.
 func (rv *ratingValidator) userIDRequired() (string, ratingValFn) {
-	return "userId", func(r *Rating) error {
-		if r.UserID == 0 {
+	return "user", func(r *Rating) error {
+		if r.User == nil {
 			return ErrRequired
 		}
 		return nil
 	}
 }
 
-// userIDRequired returns an error if the userId is 0. It may return ErrRequired.
+// userIDInvalid returns an error if the userId is 0. It may return ErrRequired.
 func (rv *ratingValidator) userIDInvalid() (string, ratingValFn) {
 	return "userId", func(r *Rating) error {
-		if r.UserID < 1 {
-			return ErrInvalid
+		if r.User != nil {
+			if r.User.ID < 1 {
+				return ErrInvalid
+			}
+			return nil
 		}
-		return nil
+		return nil // error handled by userIDRequired
+	}
+}
+
+// validateUserID returns an error if the user ID given can not be found in the
+// database, meaning that not exists. It may return ErrRefNotFound or assign an
+// ID to the user if the user could be found.
+func (rv *ratingValidator) validateUserID() (string, ratingValFn) {
+	return "userId", func(r *Rating) error {
+		// User must be in the context before being validated.
+		if r.User != nil {
+			if _, err := rv.userService.ByID(r.User.ID); err != nil {
+				if xerrors.Is(err, ErrNotFound) {
+					return ErrRefNotFound
+				}
+			}
+			r.UserID = r.User.ID
+			return nil
+		}
+		return nil // error handled by userIDRequired
 	}
 }
 

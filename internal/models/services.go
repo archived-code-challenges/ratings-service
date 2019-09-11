@@ -54,7 +54,7 @@ func NewServices(c *Config) (*Services, error) {
 		return nil, wrap("can't start UserService", err)
 	}
 
-	s.Rating = NewRatingService(s.db)
+	s.Rating = NewRatingService(s.db, s.User)
 
 	err = s.createDefaultValues()
 	if err != nil {
