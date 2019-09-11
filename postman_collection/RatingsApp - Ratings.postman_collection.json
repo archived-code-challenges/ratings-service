@@ -1,0 +1,296 @@
+{
+	"info": {
+		"_postman_id": "f775b5a7-a2f0-4ca2-b4d7-5783e72a6233",
+		"name": "RatingsApp - Ratings",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "/api/v1/ratings/",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{postman_access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "refresh_token",
+						"value": "{{postman_refresh_token}}",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Main Paddock\",\n    \"short_name\": \"MP\",\n    \"opacity\": 0.4,\n    \"colour\": \"#AA0000\",\n    \"area\": 650,\n    \"path\": [\n        {\n            \"latitude\": -33.795061,\n            \"longitude\": 151.14303\n        },\n        {\n            \"latitude\": -33.79511,\n            \"longitude\": 151.142649\n        },\n        {\n            \"latitude\": -33.794865,\n            \"longitude\": 151.142976\n        }\n    ],\n    \"dse_potential\": 8\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/v1/paddocks/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"v1",
+						"paddocks",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/ratings/:id",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{postman_access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "refresh_token",
+						"value": "{{postman_refresh_token}}",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/v1/ratings/{{postman_rating_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"v1",
+						"ratings",
+						"{{postman_rating_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/ratings/?target=:id",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{postman_access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "refresh_token",
+						"value": "{{postman_refresh_token}}",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/v1/ratings/?target={{postman_target_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"v1",
+						"ratings",
+						""
+					],
+					"query": [
+						{
+							"key": "target",
+							"value": "{{postman_target_id}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/ratings/:id",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{postman_access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "refresh_token",
+						"value": "{{postman_refresh_token}}",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"score\": 9\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/v1/ratings/{{postman_rating_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"v1",
+						"ratings",
+						"{{postman_rating_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/ratings/:id",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"type": "text",
+						"value": "Bearer {{postman_access_token}}"
+					},
+					{
+						"key": "refresh_token",
+						"type": "text",
+						"value": "{{postman_refresh_token}}",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/v1/ratings/{{postman_rating_id}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"v1",
+						"ratings",
+						"{{postman_rating_id}}"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
