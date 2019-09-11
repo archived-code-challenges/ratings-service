@@ -147,8 +147,24 @@ func (ws *webServer) setupRoles(mux *gin.RouterGroup) {
 }
 
 func (ws *webServer) setupRatings(mux *gin.RouterGroup) {
+	mux.GET("/ratings/", middleware.Can(
+		models.PermissionReadRatings,
+		ws.ratingsCtrl.ListByTarget,
+	))
+	mux.GET("/ratings/:id", middleware.Can(
+		models.PermissionReadRatings,
+		ws.ratingsCtrl.Get,
+	))
 	mux.POST("/ratings/", middleware.Can(
 		models.PermissionWriteRatings,
 		ws.ratingsCtrl.Create,
+	))
+	mux.PUT("/ratings/:id", middleware.Can(
+		models.PermissionWriteRatings,
+		ws.ratingsCtrl.Update,
+	))
+	mux.DELETE("/ratings/:id", middleware.Can(
+		models.PermissionWriteRatings,
+		ws.ratingsCtrl.Delete,
 	))
 }

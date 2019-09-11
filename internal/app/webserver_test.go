@@ -234,6 +234,62 @@ func TestWebSever(t *testing.T) {
 				{&testUserWriteUsers, http.StatusNoContent, ``},
 			},
 		},
+		// RATINGS
+		{
+			"POST",
+			"/api/v1/ratings",
+			`{"comment":"awesome stuff","score":6,"target":999}`,
+			[]subCase{
+				{&testUserNone, http.StatusUnauthorized, `{"error":"unauthorised"}`},
+				{&testUserUser, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserReadRatings, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserWriteRatings, http.StatusCreated, `{"id":1,"active":true,"anonymous":true,"comment":"awesome stuff","extra":{},"score":6,"target":999,"userId":6}`},
+			},
+		},
+		{
+			"GET",
+			"/api/v1/ratings/1",
+			"",
+			[]subCase{
+				{&testUserNone, http.StatusUnauthorized, `{"error":"unauthorised"}`},
+				{&testUserUser, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserReadRatings, http.StatusOK, `{"id":1,"active":true,"anonymous":true,"comment":"awesome stuff","extra":{},"score":6,"target":999,"userId":6}`},
+				{&testUserWriteRatings, http.StatusForbidden, `{"error":"forbidden"}`},
+			},
+		},
+		{
+			"GET",
+			"/api/v1/ratings/?target=999",
+			"",
+			[]subCase{
+				{&testUserNone, http.StatusUnauthorized, `{"error":"unauthorised"}`},
+				{&testUserUser, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserReadRatings, http.StatusOK, `{"items":[{"id":1,"active":true,"anonymous":true,"comment":"awesome stuff","extra":{},"score":6,"target":999,"userId":6}]}`},
+				{&testUserWriteRatings, http.StatusForbidden, `{"error":"forbidden"}`},
+			},
+		},
+		{
+			"PUT",
+			"/api/v1/ratings/1",
+			`{"comment":"amazing stuff","score":9,"target":999}`,
+			[]subCase{
+				{&testUserNone, http.StatusUnauthorized, `{"error":"unauthorised"}`},
+				{&testUserUser, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserReadRatings, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserWriteRatings, http.StatusOK, `{"id":1,"active":true,"anonymous":true,"comment":"amazing stuff","extra":{},"score":9,"target":999,"userId":6}`},
+			},
+		},
+		{
+			"DELETE",
+			"/api/v1/ratings/1",
+			"",
+			[]subCase{
+				{&testUserNone, http.StatusUnauthorized, `{"error":"unauthorised"}`},
+				{&testUserUser, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserReadRatings, http.StatusForbidden, `{"error":"forbidden"}`},
+				{&testUserWriteRatings, http.StatusNoContent, ``},
+			},
+		},
 	}
 
 	for _, cs := range cases {
