@@ -16,7 +16,7 @@ type testRatingDB struct {
 	RatingDB
 	create func(*Rating) error
 	update func(*Rating) error
-	delete func(int64) error
+	delete func(*Rating) error
 	byID   func(int64) (Rating, error)
 }
 
@@ -36,9 +36,9 @@ func (t *testRatingDB) Update(mr *Rating) error {
 	return nil
 }
 
-func (t *testRatingDB) Delete(id int64) error {
+func (t *testRatingDB) Delete(mr *Rating) error {
 	if t.delete != nil {
-		return t.delete(id)
+		return t.delete(mr)
 	}
 
 	return nil
@@ -90,7 +90,7 @@ func TestRatingService_Create(t *testing.T) {
 			"userRequired",
 			&Rating{Score: 10, Target: 999},
 			nil,
-			ValidationError{"user": ErrRequired},
+			ErrRequired,
 			nil,
 		},
 		{
@@ -111,8 +111,8 @@ func TestRatingService_Create(t *testing.T) {
 			"extraTooLong",
 			&Rating{
 				Extra: json.RawMessage(`{
-						"too_long":"` + strings.Repeat("a", 512) + `"
-					}`),
+							"too_long":"` + strings.Repeat("a", 512) + `"
+						}`),
 				Score:  10,
 				Target: 999,
 				User: &User{
@@ -134,8 +134,62 @@ func TestRatingService_Create(t *testing.T) {
 			"userInvalid",
 			&Rating{Score: 10, Target: 999, User: &User{ID: -999}},
 			nil,
-			ValidationError{"user": ErrInvalid},
+			ErrInvalid,
 			nil,
+		},
+		{
+			"fetchUserFails",
+			&Rating{Score: 10, Target: 999, User: &User{ID: 1}},
+			nil,
+			ErrNotFound,
+			func(t *testing.T) {
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(1), id)
+
+					return User{}, ErrNotFound
+				}
+			},
+		},
+		{
+			"idSetToZero",
+			&Rating{ID: 999, Score: 10, Target: 999, User: &User{ID: 1}},
+			&Rating{
+				ID:        99,
+				Active:    true,
+				Anonymous: true,
+				Extra:     json.RawMessage(`{}`),
+				Score:     10,
+				Target:    999,
+				UserID:    1,
+			},
+			nil,
+			func(t *testing.T) {
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(1), id)
+
+					return User{ID: 1, Active: true, RoleID: 999}, nil
+				}
+				trdb.create = func(rt *Rating) error {
+					assert.Zero(t, rt.ID)
+					var crt Rating
+					crt.Score = 10
+					crt.Target = 999
+					crt.UserID = 1
+
+					assert.NotZero(t, rt.Date)
+					rt.Date = 0 // Remove date to avoid mismatch
+
+					assert.Equal(t, &crt, rt)
+
+					*rt = NewRating()
+					rt.Score = 10
+					rt.Target = 999
+					rt.UserID = 1
+
+					rt.ID = 99
+					return nil
+				}
+			},
 		},
 		{
 			"ok",
@@ -227,7 +281,7 @@ func TestRatingService_Update(t *testing.T) {
 			"userIdRequired",
 			&Rating{ID: 99, Score: 10},
 			nil,
-			ValidationError{"user": ErrRequired},
+			ErrRequired,
 			nil,
 		},
 		{
@@ -249,8 +303,8 @@ func TestRatingService_Update(t *testing.T) {
 			&Rating{
 				ID: 99,
 				Extra: json.RawMessage(`{
-					"too_long":"` + strings.Repeat("a", 512) + `"
-				}`),
+									"too_long":"` + strings.Repeat("a", 512) + `"
+								}`),
 				Score: 10,
 				User: &User{
 					ID: 1,
@@ -264,34 +318,68 @@ func TestRatingService_Update(t *testing.T) {
 			"userInvalid",
 			&Rating{ID: 99, Score: 10, User: &User{ID: -999}},
 			nil,
-			ValidationError{"user": ErrInvalid},
+			ErrInvalid,
 			nil,
 		},
 		{
-			"notFound",
-			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			"fetchUserFails",
+			&Rating{ID: 99, Score: 10, Target: 999, User: &User{ID: 999}},
 			nil,
-			ValidationError{"id": ErrRefNotFound},
+			ErrNotFound,
 			func(t *testing.T) {
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(999), id)
+
+					return User{}, ErrNotFound
+				}
+				trdb.byID = func(id int64) (Rating, error) {
+					assert.Equal(t, int64(99), id)
+
+					return Rating{ID: 99, Target: 999, UserID: 999}, nil
+				}
+			},
+		},
+		{
+			"fetchRatingFails",
+			&Rating{ID: 99, Score: 10, User: &User{ID: 999}},
+			nil,
+			ErrNotFound,
+			func(t *testing.T) {
+				tudb.byID = func(id int64) (User, error) {
+					assert.Equal(t, int64(999), id)
+
+					return User{ID: 999, RoleID: 999}, nil
+				}
 				trdb.byID = func(id int64) (Rating, error) {
 					return Rating{}, ErrNotFound
 				}
 			},
 		},
 		{
-			"userNotFound",
-			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			"userIsOwner",
+			&Rating{ID: 99, Score: 10, User: &User{ID: 22}},
 			nil,
-			ValidationError{"userId": ErrRefNotFound},
+			ErrReadOnly,
 			func(t *testing.T) {
+				trdb.byID = func(id int64) (Rating, error) {
+					assert.Equal(t, int64(99), id)
+
+					return Rating{ID: 99, Target: 999, UserID: 1}, nil
+				}
 				tudb.byID = func(id int64) (User, error) {
-					return User{}, ErrNotFound
+					assert.Equal(t, int64(22), id)
+
+					return User{ID: 22, Active: true, RoleID: 999}, nil
 				}
 			},
 		},
 		{
 			"ok",
-			&Rating{ID: 99, Score: 10, User: &User{ID: 1}},
+			&Rating{
+				ID:    99,
+				Score: 10,
+				User:  &User{ID: 1},
+			},
 			&Rating{
 				ID:        99,
 				Active:    true,
@@ -306,7 +394,7 @@ func TestRatingService_Update(t *testing.T) {
 				trdb.byID = func(id int64) (Rating, error) {
 					assert.Equal(t, int64(99), id)
 
-					return Rating{ID: 99, Target: 999}, nil
+					return Rating{ID: 99, Target: 999, UserID: 1}, nil
 				}
 				tudb.byID = func(id int64) (User, error) {
 					assert.Equal(t, int64(1), id)
@@ -357,34 +445,109 @@ func TestRatingService_Update(t *testing.T) {
 }
 
 func TestRatingService_Delete(t *testing.T) {
+	tudb := &testUserDB{}
+	us, _ := NewUserService(nil, nil, []byte(testJWTSecret))
+	us.(*userService).UserService.(*userValidator).UserDB = tudb
+
 	trdb := &testRatingDB{}
-	rs := NewRatingService(nil, nil)
+	rs := NewRatingService(nil, us)
 	rs.(*ratingService).RatingService.(*ratingValidator).RatingDB = trdb
 
 	t.Run("dbErrors", func(t *testing.T) {
-		trdb.delete = func(id int64) error {
+		tudb.byID = func(id int64) (User, error) {
+			assert.Equal(t, int64(1), id)
+
+			return User{ID: 1, Active: true, RoleID: 999}, nil
+		}
+
+		trdb.byID = func(id int64) (Rating, error) {
 			assert.Equal(t, int64(888), id)
+
+			return Rating{ID: 888, Target: 999, UserID: 1}, nil
+		}
+
+		trdb.delete = func(r *Rating) error {
+			assert.Equal(t, int64(888), r.ID)
+
 			return ErrNotFound
 		}
 
-		err := rs.Delete(888)
+		err := rs.Delete(&Rating{ID: 888, User: &User{ID: 1}})
 
 		assert.Error(t, err)
 		assert.True(t, xerrors.Is(err, ErrNotFound))
 	})
 
-	t.Run("ok", func(t *testing.T) {
-		var called bool
-		trdb.delete = func(id int64) error {
+	t.Run("okDeleteOwner", func(t *testing.T) {
+		tudb.byID = func(id int64) (User, error) {
+			assert.Equal(t, int64(999), id)
+
+			return User{ID: 999, Active: true, RoleID: 999}, nil
+		}
+
+		trdb.byID = func(id int64) (Rating, error) {
 			assert.Equal(t, int64(888), id)
-			called = true
+
+			return Rating{ID: 888, Target: 999, UserID: 999}, nil
+		}
+
+		trdb.delete = func(r *Rating) error {
+			assert.Equal(t, int64(888), r.ID)
+
 			return nil
 		}
 
-		err := rs.Delete(888)
+		err := rs.Delete(&Rating{ID: 888, User: &User{ID: 999}})
 
 		assert.NoError(t, err)
-		assert.True(t, called)
+	})
+
+	t.Run("okAdminDelete", func(t *testing.T) {
+		tudb.byID = func(id int64) (User, error) {
+			assert.Equal(t, int64(1), id)
+
+			return User{ID: 1, Active: true, RoleID: 1}, nil
+		}
+
+		trdb.byID = func(id int64) (Rating, error) {
+			assert.Equal(t, int64(888), id)
+
+			return Rating{ID: 888, Target: 999, UserID: 1}, nil
+		}
+
+		trdb.delete = func(r *Rating) error {
+			assert.Equal(t, int64(888), r.ID)
+
+			return nil
+		}
+
+		err := rs.Delete(&Rating{ID: 888, User: &User{ID: 1}})
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("okUserDeleteWithoutOwnership", func(t *testing.T) {
+		tudb.byID = func(id int64) (User, error) {
+			assert.Equal(t, int64(4), id)
+
+			return User{ID: 4, Active: true, RoleID: 999}, nil
+		}
+
+		trdb.byID = func(id int64) (Rating, error) {
+			assert.Equal(t, int64(888), id)
+
+			return Rating{ID: 888, Target: 999, UserID: 333}, nil
+		}
+
+		trdb.delete = func(r *Rating) error {
+			assert.Equal(t, int64(888), r.ID)
+
+			return nil
+		}
+
+		err := rs.Delete(&Rating{ID: 888, User: &User{ID: 4}})
+
+		assert.Error(t, err)
 	})
 }
 
@@ -577,6 +740,23 @@ func TestRatingGORM_Update(t *testing.T) {
 			nil,
 		},
 		{
+			"userIdNotExists",
+			&Rating{ID: 999, Active: true, Anonymous: true, Comment: "", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 999},
+			ValidationError{"userId": ErrRefNotFound},
+			func(t *testing.T, db *gorm.DB) {
+				require.NoError(t, db.Create(&Rating{ID: 999, Active: false, Anonymous: false, Comment: "", Date: 0, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1}).Error)
+			},
+		},
+		{
+			"targetDuplicate",
+			&Rating{ID: 999, Active: true, Anonymous: true, Comment: "", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 888, UserID: 1},
+			ValidationError{"target": ErrDuplicate},
+			func(t *testing.T, db *gorm.DB) {
+				require.NoError(t, db.Create(&Rating{ID: 888, Active: false, Anonymous: false, Comment: "", Date: 0, Extra: json.RawMessage(`{}`), Score: 10, Target: 888, UserID: 1}).Error)
+				require.NoError(t, db.Create(&Rating{ID: 999, Active: false, Anonymous: false, Comment: "", Date: 0, Extra: json.RawMessage(`{}`), Score: 10, Target: 999, UserID: 1}).Error)
+			},
+		},
+		{
 			"noChanges",
 			&Rating{ID: 999, Active: true, Anonymous: true, Comment: "", Date: 1257894000000, Extra: json.RawMessage(`{}`), Score: 10, Target: 6345, UserID: 1},
 			nil,
@@ -669,7 +849,7 @@ func TestRatingGORM_Delete(t *testing.T) {
 				cs.setup(t, db)
 			}
 
-			err := (&ratingGorm{db}).Delete(cs.rating.ID)
+			err := (&ratingGorm{db}).Delete(cs.rating)
 
 			if cs.outerr != nil {
 				assert.Error(t, err)

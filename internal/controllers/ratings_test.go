@@ -16,7 +16,7 @@ type testRatingService struct {
 	models.RatingService
 	create   func(*models.Rating) error
 	update   func(*models.Rating) error
-	delete   func(int64) error
+	delete   func(*models.Rating) error
 	byID     func(int64) (models.Rating, error)
 	byTarget func(int64) ([]models.Rating, error)
 }
@@ -37,9 +37,9 @@ func (t *testRatingService) Update(mr *models.Rating) error {
 	panic("not provided")
 }
 
-func (t *testRatingService) Delete(id int64) error {
+func (t *testRatingService) Delete(mr *models.Rating) error {
 	if t.delete != nil {
-		return t.delete(id)
+		return t.delete(mr)
 	}
 
 	panic("not provided")
@@ -209,6 +209,14 @@ func TestRatings_Update(t *testing.T) {
 		setup     func(t *testing.T)
 	}{
 		{
+			"badPathID",
+			"/api/v1/ratings/lksdjflk",
+			"",
+			http.StatusNotFound,
+			`{"error":"not_found"}`,
+			nil,
+		},
+		{
 			"badContent",
 			"api/v1/ratings/99",
 			"graskdfhjglk!@98574sjdgfh ksdhf lksdfghlksjkl",
@@ -367,7 +375,11 @@ func TestRatings_Delete(t *testing.T) {
 	r := NewRatings(rs)
 
 	mux := gin.New()
-	mux.DELETE("/api/v1/ratings/:id", r.Delete)
+	mux.DELETE("/api/v1/ratings/:id", func(c *gin.Context) {
+		c.Set("user", &models.User{
+			ID: 1,
+		})
+	}, r.Delete)
 
 	var cases = []struct {
 		name      string
@@ -389,8 +401,8 @@ func TestRatings_Delete(t *testing.T) {
 			http.StatusNotFound,
 			`{"error":"not_found"}`,
 			func(t *testing.T) {
-				rs.delete = func(id int64) error {
-					assert.Equal(t, int64(999), id)
+				rs.delete = func(mr *models.Rating) error {
+					assert.Equal(t, int64(999), mr.ID)
 					return models.ErrNotFound
 				}
 			},
@@ -401,8 +413,8 @@ func TestRatings_Delete(t *testing.T) {
 			http.StatusInternalServerError,
 			`{"error":"server_error"}`,
 			func(t *testing.T) {
-				rs.delete = func(id int64) error {
-					assert.Equal(t, int64(999), id)
+				rs.delete = func(mr *models.Rating) error {
+					assert.Equal(t, int64(999), mr.ID)
 					return wrap("test internal error", nil)
 				}
 			},
@@ -413,8 +425,8 @@ func TestRatings_Delete(t *testing.T) {
 			http.StatusNoContent,
 			`{}`,
 			func(t *testing.T) {
-				rs.delete = func(id int64) error {
-					assert.Equal(t, int64(999), id)
+				rs.delete = func(mr *models.Rating) error {
+					assert.Equal(t, int64(999), mr.ID)
 					return nil
 				}
 			},
@@ -590,13 +602,6 @@ func TestRatings_ListByTarget(t *testing.T) {
 			`{"error":"validation_error","fields":{"target": "invalid_parse"}}`,
 			nil,
 		},
-		// {
-		// 	"badQueryID4",
-		// 	"/api/v1/ratings/?target=-999",
-		// 	http.StatusNotFound,
-		// 	`{"error":"validation_error","fields":{"target": "not_found"}}`,
-		// 	nil,
-		// },
 		{
 			"blankTarget",
 			"/api/v1/ratings/?target=",

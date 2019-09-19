@@ -35,7 +35,7 @@ type RatingDB interface {
 	Update(*Rating) error
 
 	// Delete removes a rating by ID.
-	Delete(int64) error
+	Delete(*Rating) error
 
 	// ByID retrieves a rating by ID.
 	ByID(int64) (Rating, error)
@@ -108,16 +108,18 @@ type ratingValidator struct {
 }
 
 func (rv *ratingValidator) Create(rating *Rating) error {
+	rc := ratingValWithDBData{rv: rv, us: rv.userService}
 	err := rv.runValFuncs(rating,
 		rv.idSetToZero,
-		rv.userInvalid,
-		rv.validateUserID,
+		rv.userSessionExists,
+		rv.userSessionInvalid,
 		rv.targetRequired,
 		rv.scoreRequired,
-		rv.userRequired,
 		rv.commentLength,
 		rv.extraLength,
 		rv.targetInvalid,
+		rc.fetchUser,
+		rc.setSessionUserAsUserID,
 		rv.setDate,
 	)
 	if err != nil {
@@ -129,14 +131,18 @@ func (rv *ratingValidator) Create(rating *Rating) error {
 }
 
 func (rv *ratingValidator) Update(rating *Rating) error {
+	rc := ratingValWithDBData{rv: rv, us: rv.userService}
 	err := rv.runValFuncs(rating,
-		rv.getTarget,
-		rv.userInvalid,
-		rv.validateUserID,
+		rv.userSessionExists,
+		rv.userSessionInvalid,
 		rv.scoreRequired,
-		rv.userRequired,
 		rv.commentLength,
 		rv.extraLength,
+		rc.fetchUser,
+		rc.fetchRating,
+		rc.userIsOwner,
+		rc.setDatabaseRatingDefaults,
+		rc.setSessionUserAsUserID,
 		rv.setDate,
 	)
 	if err != nil {
@@ -147,7 +153,33 @@ func (rv *ratingValidator) Update(rating *Rating) error {
 	return rv.RatingDB.Update(rating)
 }
 
+func (rv *ratingValidator) Delete(rating *Rating) error {
+
+	rc := ratingValWithDBData{rv: rv, us: rv.userService}
+	err := rv.runValFuncs(rating,
+		rv.userSessionExists,
+		rv.userSessionInvalid,
+		rc.fetchUser,
+		rc.fetchRating,
+		rc.userIsOwnerOrAdmin,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	rating.User = nil
+	return rv.RatingDB.Delete(rating)
+}
+
 type ratingValFn func(r *Rating) error
+
+type ratingValWithDBData struct {
+	rv          *ratingValidator
+	us          UserService
+	sessionUser User
+	dbRating    Rating
+}
 
 func (rv *ratingValidator) runValFuncs(r *Rating, fns ...func() (string, ratingValFn)) error {
 	return runValidationFunctions(r, fns)
@@ -191,24 +223,6 @@ func (rv *ratingValidator) targetInvalid() (string, ratingValFn) {
 	}
 }
 
-// getTarget queries the rating to get its target before updating. If the rating
-// could not be retrieved, an ErrNotFound will be raised, meaning that there is
-// not a record on the database that matches with the rating ID.
-func (rv *ratingValidator) getTarget() (string, ratingValFn) {
-	return "id", func(r *Rating) error {
-		if r.ID > 0 {
-			rdb, err := rv.RatingDB.ByID(r.ID)
-			if err != nil {
-				if xerrors.Is(err, ErrNotFound) {
-					return ErrRefNotFound
-				}
-			}
-			r.Target = rdb.Target
-		}
-		return nil
-	}
-}
-
 // scoreRequired returns an error if the score is 0. It may return ErrRequired.
 func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
 	return "score", func(r *Rating) error {
@@ -216,48 +230,6 @@ func (rv *ratingValidator) scoreRequired() (string, ratingValFn) {
 			return ErrRequired
 		}
 		return nil
-	}
-}
-
-// userRequired returns an error if the userId is 0. It may return ErrRequired.
-func (rv *ratingValidator) userRequired() (string, ratingValFn) {
-	return "user", func(r *Rating) error {
-		if r.User == nil {
-			return ErrRequired
-		}
-		return nil
-	}
-}
-
-// userInvalid returns an error if the User ID is 0. It may return ErrInvalid.
-func (rv *ratingValidator) userInvalid() (string, ratingValFn) {
-	return "user", func(r *Rating) error {
-		if r.User != nil {
-			if r.User.ID < 1 {
-				return ErrInvalid
-			}
-			return nil
-		}
-		return nil // error handled by userRequired
-	}
-}
-
-// validateUserID returns an error if the user ID obtained from the context can
-// not be found in the database, meaning that not exists. It may return
-// ErrRefNotFound or assign an ID to the user if the user could be found.
-func (rv *ratingValidator) validateUserID() (string, ratingValFn) {
-	return "userId", func(r *Rating) error {
-		// User must be in the context before being validated.
-		if r.User != nil {
-			if _, err := rv.userService.ByID(r.User.ID); err != nil {
-				if xerrors.Is(err, ErrNotFound) {
-					return ErrRefNotFound
-				}
-			}
-			r.UserID = r.User.ID
-			return nil
-		}
-		return nil // error handled by userRequired
 	}
 }
 
@@ -281,6 +253,106 @@ func (rv *ratingValidator) extraLength() (string, ratingValFn) {
 			return ErrTooLong
 		}
 
+		return nil
+	}
+}
+
+// userSessionExists returns an error if the rating. User is nil. It may return
+// an internal error with a descriptive message and ErrRequired attached.
+func (rv *ratingValidator) userSessionExists() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		if r.User == nil {
+			return wrap("session user does not exist", ErrRequired)
+		}
+		return nil
+	}
+}
+
+// userSessionInvalid returns an error if the User ID is 0. It may return
+// an internal error with a descriptive message and ErrInvalid attached.
+// Must be called after userSessionExists.
+func (rv *ratingValidator) userSessionInvalid() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		if r.User.ID < 1 {
+			return wrap("session user is invalid", ErrInvalid)
+		}
+		return nil
+	}
+}
+
+// fetchUser retrieves the current user value from the database. Must be called
+// just after userSessionExists and userSessionInvalid which will check that the
+// user on the session exists and can be used. Should be called just before any
+// other validators implemented by the receiver type.
+func (rc *ratingValWithDBData) fetchUser() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		var err error
+		rc.sessionUser, err = rc.us.ByID(r.User.ID) // r.User must be in the context before being validated.
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+// fetchRating retrieves the current rating value from the database. Must be
+// called just after userSessionExists and userSessionInvalid which will check
+// that the user on the session exists and can be used. Should be called just
+// before any other validators implemented by the receiver type.
+func (rc *ratingValWithDBData) fetchRating() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		var err error
+		rc.dbRating, err = rc.rv.RatingDB.ByID(r.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+// userIsOwner checks if the user of the session is the owner of the rating
+// being processed. A session user must have been successfully obtained before
+// using this method.
+func (rc *ratingValWithDBData) userIsOwner() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+
+		if rc.dbRating.UserID != rc.sessionUser.ID {
+			return ErrReadOnly
+		}
+		return nil
+	}
+}
+
+// setDatabaseRatingDefaults sets the target of the rating being processed to
+// its existing value in the database. This method is dependent on fetchRating.
+func (rc *ratingValWithDBData) setDatabaseRatingDefaults() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		r.Target = rc.dbRating.Target
+		return nil
+	}
+}
+
+// setDatabaseRatingDefaults sets the UserID of the rating being processed to
+// the existing value of user retrieved from the session. This method is then
+// dependent on fetchUser.
+func (rc *ratingValWithDBData) setSessionUserAsUserID() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+		r.UserID = rc.sessionUser.ID
+		return nil
+	}
+}
+
+// userIsOwnerOrAdmin proves that the user trying to delete a rating is the
+// owner or an administrator. A session user must have been successfully
+// obtained before using this method.
+func (rc *ratingValWithDBData) userIsOwnerOrAdmin() (string, ratingValFn) {
+	return "", func(r *Rating) error {
+
+		if rc.dbRating.UserID != rc.sessionUser.ID {
+			if r.User.RoleID != 1 {
+				return ErrReadOnly
+			}
+		}
 		return nil
 	}
 }
@@ -332,8 +404,8 @@ func (rg *ratingGorm) Update(r *Rating) error {
 	return nil
 }
 
-func (rg *ratingGorm) Delete(id int64) error {
-	res := rg.db.Delete(&Rating{}, id)
+func (rg *ratingGorm) Delete(r *Rating) error {
+	res := rg.db.Delete(&Rating{}, r.ID)
 
 	if res.Error != nil {
 		return wrap("could not delete rating by id", res.Error)

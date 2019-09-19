@@ -32,8 +32,6 @@ const (
 	ErrRefreshExpired    ModelError   = "models: expired_refresh_token, refresh token has expired"
 
 	ErrPasswordIncorrect ModelError = "models: incorrect_password, incorrect password provided"
-
-	ErrTypeIncompatible ModelError = "models: sensor_type_incompatible, updated sensor type is incompatible with current one"
 )
 
 // PublicError is an error that returns a string code that can be presented to the API user.
