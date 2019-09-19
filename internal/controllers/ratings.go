@@ -22,6 +22,9 @@ func NewRatings(rs models.RatingService) *Ratings {
 	ev.SetCode(ErrNotFound, http.StatusNotFound)
 	ev.SetCode(models.ErrNotFound, http.StatusNotFound)
 	ev.SetCode(models.ErrRefNotFound, http.StatusNotFound)
+	ev.SetCode(models.ErrReadOnly, http.StatusConflict)
+	ev.SetCode(models.ErrDuplicate, http.StatusConflict)
+	ev.SetCode(models.ErrIDTaken, http.StatusConflict)
 
 	return &Ratings{
 		rs:      rs,
@@ -118,7 +121,23 @@ func (r *Ratings) Delete(c *gin.Context) {
 		return
 	}
 
-	err = r.rs.Delete(id)
+	user, exists := c.Get("user")
+	if !exists {
+		r.viewErr.JSON(c, errors.New("user couldn't be obtained from the context"))
+		return
+	}
+
+	var rating = models.Rating{}
+
+	u, ok := user.(*models.User)
+	if !ok {
+		panic("user from the context must be a pointer of models.User type")
+	}
+
+	rating.ID = id
+	rating.User = u
+
+	err = r.rs.Delete(&rating)
 	if err != nil {
 		r.viewErr.JSON(c, err)
 		return
