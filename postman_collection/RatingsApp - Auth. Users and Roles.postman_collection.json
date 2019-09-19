@@ -1,0 +1,888 @@
+{
+	"info": {
+		"_postman_id": "80a432de-1626-4637-9b19-0d30f94c68f6",
+		"name": "RatingsApp - Auth. Users and Roles",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Auth (admin credentials)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "95e0ab42-3480-440a-88fe-05124c8af35b",
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"// SET GLOBAL refresh_token",
+									"pm.globals.set(\"postman_refresh_token\", pm.response.json()[\"refresh_token\"]);",
+									"pm.globals.set(\"postman_access_token\", pm.response.json()[\"access_token\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/x-www-form-urlencoded",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "email",
+									"value": "admin@admin.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "admin",
+									"type": "text"
+								},
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/oauth/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"oauth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Auth (token refresh)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "10d0fa82-716d-4bfa-b0a7-925f37482f88",
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"// SET GLOBAL refresh_token",
+									"pm.globals.set(\"postman_refresh_token\", pm.response.json()[\"refresh_token\"]);",
+									"pm.globals.set(\"postman_access_token\", pm.response.json()[\"access_token\"]);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"id": "11b8937c-664f-48da-8920-d76f2569886c",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/x-www-form-urlencoded",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "refresh_token",
+									"value": "{{postman_refresh_token}}",
+									"type": "text"
+								},
+								{
+									"key": "grant_type",
+									"value": "refresh_token",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/oauth/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"oauth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "752d28e5-122f-424b-9b95-4da5114adfe5",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "c6ee5e10-d71e-486b-a002-de1515d2e485",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"item": [
+				{
+					"name": "/api/v1/roles",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/roles/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"roles",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/roles",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+								"exec": [
+									"pm.globals.set(\"postman_role_id\", pm.response.json()[\"id\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"label\": \"accountant\",\n\t\"permissions\":\t[\n        \"readUsers\",\n        \"readRatings\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/roles/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"roles",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/roles/:id",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"label\": \"accounting\",\n    \"permissions\": [\n        \"readUsers\",\n        \"writeRatings\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/roles/{{postman_role_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"roles",
+								"{{postman_role_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/roles/:id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "0ff53ca6-d6b0-4a87-91c8-891bc507fbf2",
+								"exec": [
+									"",
+									"pm.test(\"Status code is 204\", function () {",
+									"    pm.response.to.have.status(204);",
+									"});pm.globals.unset(\"postman_role_id\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/roles/{{postman_role_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"roles",
+								"{{postman_role_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/roles/?id=:id, :id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/roles/?id=1,3",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"roles",
+								""
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "1,3"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "9cdbec90-7f79-443b-aa9a-11de64469c0e",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "61d5ebd1-650b-48c1-9277-ac74baeca7af",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "/api/v1/users/ [ALL]",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "a25a14ed-07a8-43a0-ac9a-30ce8318b4bb",
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.items){",
+									"        pm.globals.set(\"postman_client_id_1\", jsonData.items[0].id);",
+									"        pm.globals.set(\"postman_client_id_2\", jsonData.items[1].id);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "ff74386d-0282-49f5-bf80-b2aed55d6989",
+								"exec": [
+									"pm.globals.set(\"postman_created_user_id\", pm.response.json()[\"id\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"active\": true,\n    \"email\": \"someone@somewhere.com\",\n    \"first_name\": \"John\",\n    \"last_name\": \"Dear\",\n    \"password\": \"test1234\",\n    \"role_id\": 2\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/:id",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"active\": true,\n    \"email\": \"someone@somewhereelse.com\",\n    \"first_name\": \"Jon\",\n    \"last_name\": \"Sweet\",\n    \"password\": \"tetetest1234\",\n    \"role_id\": 2\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{postman_created_user_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"{{postman_created_user_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "a25a14ed-07a8-43a0-ac9a-30ce8318b4bb",
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.items){",
+									"        pm.globals.set(\"postman_client_id_1\", jsonData.items[0].id);",
+									"        pm.globals.set(\"postman_client_id_2\", jsonData.items[1].id);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/?id=:id, :id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/?id={{postman_client_id_1}},{{postman_client_id_2}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								""
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "{{postman_client_id_1}},{{postman_client_id_2}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/:id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{postman_client_id_2}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"{{postman_client_id_2}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "/api/v1/users/:id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "4b1ab067-77f6-496f-9f0d-9b6d9bc93444",
+								"exec": [
+									"pm.test(\"Status code is 204\", function () {",
+									"    pm.response.to.have.status(204);",
+									"    pm.globals.unset(\"postman_created_user_id\");",
+									"});",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{postman_access_token}}",
+								"type": "text"
+							},
+							{
+								"key": "refresh_token",
+								"value": "{{postman_refresh_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/v1/users/{{postman_created_user_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"{{postman_created_user_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "a023726e-d3ac-47e9-b995-61db18490eef",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "217d6a7b-0223-4323-9fde-564379d1900e",
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "3b0529d3-5258-4190-ab1b-731ca7e07a32",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "fb72b0cc-992a-4d7b-9564-58b82e8ea4a5",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

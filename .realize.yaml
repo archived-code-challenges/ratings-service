@@ -1,0 +1,31 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+
+schema:
+- name: ratingsapp
+  path: .
+  commands:
+    build:
+      status: true
+      dir: cmd/ratingsapp
+      args:
+      - -mod=vendor
+    run:
+      status: true
+      dir: cmd/ratingsapp
+
+  args:
+  - -v
+
+  watcher:
+    extensions:
+    - go
+    paths:
+    - /
+    ignore:
+      paths:
+      - .git
+      - .realize
+      - vendor

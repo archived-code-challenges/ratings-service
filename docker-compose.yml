@@ -1,0 +1,59 @@
+# This is a Compose file meant for a development environment. Please check the 
+# README on how it's used.
+
+version: "3.1"
+
+services:
+  ratingsapp:
+    image: golang:1.12.9
+    working_dir: /opt/project
+    volumes:
+      - .:/opt/project
+    command: /bin/bash
+    ports:
+      - 8000:8000
+    networks:
+      - ratingsapp
+    environment:
+      - RATINGSAPP_POSTGRES_DSL=postgres://ratingsapp:ratingspassword@postgres:5432/ratingsapp?sslmode=disable
+      - RATINGSAPP_POSTGRES_TEST_DSL=postgres://ratingsapp:ratingspassword@postgres_test:5432/ratingsapp_test?sslmode=disable
+      - GO111MODULE=on
+      - RATINGSAPP_JWT_SECRET=SAMPLE_DEVELOPMENT_SECRET_WITH_LENGTH
+    depends_on:
+      - postgres
+      - postgres_test
+
+  postgres:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_USER=ratingsapp
+      - POSTGRES_PASSWORD=ratingspassword
+      - PGDATA=/var/lib/postgresql/data
+      - POSTGRES_DB=ratingsapp
+    ports:
+      - 5432:5432
+    volumes:
+      - fd_pg_data:/var/lib/postgresql/data
+    networks:
+      - ratingsapp
+
+  postgres_test:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_USER=ratingsapp
+      - POSTGRES_PASSWORD=ratingspassword
+      - PGDATA=/var/lib/postgresql/data
+      - POSTGRES_DB=ratingsapp_test
+    ports:
+      - 5433:5432
+    volumes:
+      - fd_pgt_data:/var/lib/postgresql/data
+    networks:
+      - ratingsapp
+
+networks:
+  ratingsapp:
+
+volumes:
+  fd_pg_data:
+  fd_pgt_data:
