@@ -8,11 +8,11 @@ Rating
   - [Update](#update)
   - [Delete](#delete)
 
-A Rating resource represents an expression of value of any of the users in the system of a product, that will be referred as an ID, without a reference in the database.
+A Rating resource represents an expression of value of any of the users of the system to a product, with a score and an optional commentary as well as other useful values described below.
 
-The store of those ratings will include comments, a reference to the user to track who did an specific comment and the rate itself, that will be stored as an integer.
+The store of those ratings in addition to comments will include some useful data to check if the commentary is active or anonymous. A date keeping in the database the last (epoch) time of alteration of a rating, an 'extra' field to store information in json, a reference to the user to track who did a specific rating as the and finally, the rating score itself, that will be stored as an integer.
 
-To make this API reusable and "end-user independent", the items will be stored with a product ID (product that is being rated)
+To make this API reusable and "end-user independent", the items will be stored with a target ID (product that is being rated) without creating a reference to a product in the database. Yet.
 
 **Fields:**
 
@@ -32,7 +32,13 @@ To make this API reusable and "end-user independent", the items will be stored w
 
 **userId will be auto-assigned by the system to the user making the request, as denoted previously.
 
-The pair (userId, target) needs to be unique in the system // One comment per user.
+Functionality to have in mind:
+
+- The pair (userId, target) needs to be unique in the system, this means one comment per user and target.
+- A rating can only be updated by its owner.
+- A rating can be deleted by its owner or by an administrator.
+- Defaults for active, anonymous and extra would be applied if not supplied
+- id, date and userId will be ignored if supplied.
 
 Create
 ------
@@ -65,8 +71,11 @@ Content-Type: application/json
 
 {
     "id": 99999,
+    "active: true,
+    "anonymous": true,
     "comment": "The article was amazing, but the case was a bit damaged.",
     "date": 1257894000,
+    "extra" : {},
     "score": 4,
     "target": 1223456,
     "userId": 999,
@@ -78,7 +87,8 @@ Reponse codes:
 * **201**: rating has been created.
 * **400**: The request could not be understood or has validation errors.
 * **403**: The current user is not authorised to perform this operation.
-* **409**: A rating with the same pair: target, userId already exists.
+* **404**: User reference couldn't be found in the system using the session data.
+* **409**: You are trying to duplicate an existing entity.
 
 Error example:
 
@@ -101,20 +111,20 @@ Pragma: no-cache
 
 | Case | HTTP code | error | fields |
 | - | - | - | - |
-| Input body is malformed | 400 | invalid_json | |
-| Invalid Authorization header | 401 | unauthorised | |
-| User does not have a `writeRatings` permission | 403 | forbidden | |
-| Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
-| ID field is invalid | 400 | validation_error | id: id_taken |
 | comment must have max 255 characters | 400 | validation_error | comment: too_long |
 | extra content is invalid | 400 | validation_error | extra: invalid |
 | extra must have max 255 characters | 400 | validation_error | extra: too_long |
 | score field is required | 400 | validation_error | score: required |
 | target field is required | 400 | validation_error | target: required |
 | target field is invalid | 400 | validation_error | target: invalid |
-| user field is required | 400 | validation_error | user: required |
-| user field is invalid | 400 | validation_error | user: invalid |
 | userId field is invalid | 404 | validation_error | userId: reference_not_found |
+| Input body is malformed | 400 | invalid_json | |
+| Invalid Authorization header | 401 | unauthorised | |
+| User does not have a `writeRatings` permission | 403 | forbidden | |
+| userId field is invalid | 404 | validation_error | userId: reference_not_found |
+| Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
+| ID field is invalid | 409 | validation_error | id: id_taken |
+| target field for the given user already exists in the system | 409 | validation_error | target: is_duplicate |
 | Internal error | 500 | server_error | |
 
 
@@ -209,8 +219,11 @@ Content-Type: application/json
 
 {
     "id": 99999,
+    "active: true,
+    "anonymous": true,
     "comment": "The article was amazing, but the case was a bit damaged.",
     "date": 1257894000,
+    "extra" : {},
     "score": 4,
     "target": 1223456,
     "userId": 999
@@ -251,6 +264,7 @@ Update
 ------
 
 Updates an existing rating.
+Remember, a rating can only be updated by its owner.
 
 **Request:**
 
@@ -259,7 +273,7 @@ PUT /api/v1/ratings/{id}
 Content-Type: application/json
 
 {
-    "anonymous": true,
+    "anonymous": false,
     "comment": "The article was exactly as I expected.",
     "extra": {"color":"blue"},
     "score": 9,
@@ -281,14 +295,14 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-    "id": 99999,
-    "anonymous": true,
+    "id": 999,
+    "active: true,
+    "anonymous": false,
     "comment": "The article was exactly as I expected.",
     "date": 1257894000,
     "extra": {"color":"blue"},
     "score": 9,
     "target": 1223456,
-    "userId": 999,
 }
 ```
 
@@ -297,7 +311,8 @@ Reponse codes:
 * **200**: Rating has been updated.
 * **400**: The request could not be understood or has validation errors.
 * **403**: The current user is not authorised to perform this operation.
-* **409**: You are trying to modify a read-only resource.
+* **404**: Requested ID not found or User reference couldn't be found in the system using the session data.
+* **409**: You are trying to modify a read-only resource or trying to duplicate an existing entity.
 
 Error example:
 
@@ -323,18 +338,12 @@ Pragma: no-cache
 | extra content is invalid | 400 | validation_error | extra: invalid |
 | extra must have max 255 characters | 400 | validation_error | extra: too_long |
 | score field is required | 400 | validation_error | score: required |
-| user field is required | 400 | validation_error | user: required |
-| user field is invalid | 400 | validation_error | user: invalid |
 | Invalid Authorization header | 401 | unauthorised | |
-| Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
 | User does not have a `writeRatings` permission | 403 | forbidden | |
-| target field is invalid | 404 | validation_error | target: reference_not_found |
 | userId field is invalid | 404 | validation_error | userId: reference_not_found |
-| Primary key already exists | 409 | validation_error | id: id_taken |
-| Resource cannot be modified or deleted | 409 | validation_error | id: read_only |
-| Resource cannot be modified or deleted | 409 | validation_error | userId: read_only |
-| Resource cannot be modified or deleted | 409 | validation_error | target: read_only |
-| Resource cannot be modified or deleted | 409 | validation_error | date: read_only |
+| Invalid Content-Type/Accept, not wildcard or `application/json` | 406 | not_acceptable | |
+| target field for the given user already exists in the system | 409 | validation_error | target: is_duplicate |
+| User is not allowed to do the requested operation | 409 | read_only | |
 | Internal error | 500 | server_error | |
 
 
@@ -344,6 +353,8 @@ Delete
 Deletes a specific rating from the system.
 
 A rating that has users attached cannot be deleted without first detaching the rating from them.
+
+Administrators have the capability to delete any rating. The owner of a rating can remove it as long as it's logged in.
 
 **Request:**
 
@@ -366,7 +377,8 @@ Reponse codes:
 * **204**: Request completed successfully.
 * **400**: The request could not be understood or has validation errors.
 * **403**: The current user is not authorised to perform this operation.
-* **404**: Requested ID not found.
+* **404**: Requested ID not found or User reference couldn't be found in the system using the session data.
+* **409**: You are trying to delete a read-only resource.
 
 Error example:
 
@@ -388,5 +400,5 @@ Pragma: no-cache
 | Path parameter `id` is not an integer | 404 | not_found | |
 | Item could not be found | 404 | not_found | |
 | Invalid Accept, not wildcard or `application/json` | 406 | not_acceptable | |
-| Resource cannot be modified or deleted | 409 | validation_error | id: read_only |
+| User is not allowed to do the requested operation | 409 | read_only | |
 | Internal error | 500 | server_error | |

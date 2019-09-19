@@ -554,13 +554,11 @@ These are the current permissions available:
 | - | - | - |
 | readUsers | PermissionReadUsers | Allows reading and listing users and roles |
 | writeUsers | PermissionWriteUsers | Allows creating, updating and deleting users and roles |
-| readBilling | PermissionReadBilling | Allows reading billing information |
-| writeBilling | PermissionWriteBilling | Allows updating billing details |
-| writeSensors | PermissionWriteSensors | Allows creating, updating and deleting sensor configuration and data |
-| writeFarm | PermissionWriteFarm | Allows creating, updating and deleting farm elements, e.g. paddock perimeters |
+| readRatings| PermissionReadRatings| Allows reading rating elements. |
+| writeRatings| PermissionWriteRatings| Allows creating, updating and deleting rating elements. |
 
 The way this works is everything that does NOT have a read permission, is allowed to be read by anyone, and everything that does NOT have a write permission, is allowed to be written by anyone.
-Therefore, the only things that need permission to be read are users and billing. Everything else can be read by anyone with any role or any set of permissions.
+Therefore, the only things that need permission to be read are users. Everything else can be read by anyone with any role or any set of permissions.
 
 **Fields:**
 
@@ -589,7 +587,7 @@ Content-Type: application/json
     "label": "Workers",
     "permissions": [
         "readUsers",
-        "readBilling"
+        "readRatings"
     ]
 }
 ```
@@ -607,7 +605,7 @@ Content-Type: application/json
     "label": "Workers",
     "permissions": [
         "readUsers",
-        "readBilling"
+        "readRatings"
     ]
 }
 ```
@@ -672,14 +670,14 @@ Content-Type: application/json
             "label": "Workers",
             "permissions": [
                 "readUsers",
-                "readBilling"
+                "readRatings"
             ]
         },
         {
             "id": 991,
             "label": "Agronomists",
             "permissions": [
-                "writeFarm"
+                "writeRatings"
             ]
         }
     ]
@@ -741,7 +739,7 @@ Content-Type: application/json
     "label": "Workers",
     "permissions": [
         "readUsers",
-        "readBilling"
+        "readRatings"
     ]
 }
 ```
@@ -793,7 +791,7 @@ Content-Type: application/json
     "label": "Workers",
     "permissions": [
         "readUsers",
-        "readBilling"
+        "readRatings"
     ]
 }
 ```
@@ -813,7 +811,7 @@ Content-Type: application/json
     "label": "Workers",
     "permissions": [
         "readUsers",
-        "readBilling"
+        "readRatings"
     ]
 }
 ```

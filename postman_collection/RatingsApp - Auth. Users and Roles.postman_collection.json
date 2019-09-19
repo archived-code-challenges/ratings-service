@@ -254,7 +254,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n\t\"label\": \"accountant\",\n\t\"permissions\":\t[\n        \"readUsers\",\n        \"readBilling\"\n    ]\n}"
+							"raw": "{\n\t\"label\": \"accountant\",\n\t\"permissions\":\t[\n        \"readUsers\",\n        \"readRatings\"\n    ]\n}"
 						},
 						"url": {
 							"raw": "http://localhost:8000/api/v1/roles/",

@@ -36,7 +36,7 @@ Don't forget to stop the database container after you're done:
 
     docker-compose stop
 
-TIP: You can reset the service with the following command
+TIP: You can reset the whole docker-compose service with the following command. Use it carefully.
 
     docker-compose down && docker-compose up -d
 
@@ -53,19 +53,6 @@ The -count=1 makes sure the test cache is not used. The packages in internal and
 You can check a web-based coverage report by launching the following command on the **host**:
 
     go tool cover -html=cover.out
-
-
-Hot reload
-----------
-
-To watch the Go files for changes and automatically recompile and reload the server, use the "realize" utility in the Go container with:
-
-    ./realize start
-
-The utility will not die if it fails to build, which is quite nice.
-
-TIP: Remember to clean (drop and create) the database if a significant change in the schema (like a unique constraint) is made. Realize will not do it for you.
-
 
 Debug backend
 -------------
@@ -97,13 +84,27 @@ This will result OK if everything works and we will be inside of the docker cont
 ...
 Two options from here:
 
-1. Realize allow us to test the API from a client like *Postman*.
+1. Build the project to test the API from a client like *Postman*.
 
-    `realize start`
+    `go build -mod=vendor ./cmd/ratingsapp && ./ratingsapp -v`
 
 2. With go test we can test the components separately.
 
     `go test -mod=vendor -cover -v -p 1 -count=1 ./...`
+
+
+Hot reload
+----------
+
+To watch the Go files for changes and automatically recompile and reload the server, use the ["realize"](https://github.com/oxequa/realize) utility:
+
+    go get github.com/oxequa/realize
+
+    $ realize start
+
+The utility will not die if it fails to build.
+
+TIP: Remember to clean (drop and create) the database if a significant change in the schema (like a unique constraint) is made. Realize will not do it for you.
 
 
 Deployment
